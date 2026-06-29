@@ -13,7 +13,7 @@ const fadeInUp = {
 
 export const Home: React.FC = () => {
   return (
-    <div className="flex flex-col gap-16 py-12 overflow-hidden">
+    <div className="flex flex-col gap-16 py-12">
       <HeroSection />
       
       <motion.div 
