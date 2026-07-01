@@ -144,6 +144,39 @@ export const communityService = {
     }
   },
 
+  async createThread(title: string, content: string, category: string): Promise<CommunityThread | null> {
+    try {
+      // Mock user author for now until full auth is wired in the frontend state
+      const author = {
+        id: 'user-current',
+        username: 'You',
+        avatar: '👤',
+        knowledgeLevel: 'intermediate'
+      };
+      
+      const response = await api.post(`${COMMUNITY_API_BASE}/threads/create`, {
+        title,
+        content,
+        category,
+        author
+      });
+      return response.data.data;
+    } catch (error) {
+      console.warn('Failed to create thread', error);
+      return null;
+    }
+  },
+
+  async upvoteThread(threadId: string): Promise<CommunityThread | null> {
+    try {
+      const response = await api.post(`${COMMUNITY_API_BASE}/threads/${threadId}/upvote`);
+      return response.data.data;
+    } catch (error) {
+      console.warn('Failed to upvote thread', error);
+      return null;
+    }
+  },
+
   async getPopularThreads(limit: number = 5): Promise<CommunityThread[]> {
     try {
       const response = await api.get(`${COMMUNITY_API_BASE}/threads-popular?limit=${limit}`);

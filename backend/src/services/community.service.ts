@@ -180,7 +180,7 @@ const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   }
 ];
 
-const MOCK_THREADS: CommunityThread[] = [
+let MOCK_THREADS: CommunityThread[] = [
   {
     id: 'thread-1',
     title: 'Best practices for ML-KEM integration',
@@ -305,7 +305,33 @@ export const communityService = {
     
     return Object.entries(tagCounts)
       .map(([tag, count]) => ({ tag, count }))
-      .sort((a, b) => b.count - a.count)
       .slice(0, 10);
+  },
+
+  async createThread(title: string, content: string, category: string, author: any): Promise<CommunityThread> {
+    const newThread: CommunityThread = {
+      id: `thread-${Date.now()}`,
+      title,
+      content,
+      category: category as any,
+      author,
+      createdAt: new Date().toISOString(),
+      replies: 0,
+      views: 0,
+      upvotes: 0,
+      tags: [],
+    };
+    // Insert at beginning
+    MOCK_THREADS = [newThread, ...MOCK_THREADS];
+    return newThread;
+  },
+
+  async upvoteThread(threadId: string): Promise<CommunityThread | null> {
+    const thread = MOCK_THREADS.find(t => t.id === threadId);
+    if (thread) {
+      thread.upvotes += 1;
+      return thread;
+    }
+    return null;
   }
 };

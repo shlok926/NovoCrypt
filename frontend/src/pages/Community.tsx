@@ -12,6 +12,13 @@ export default function Community() {
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
   const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   
+  // New thread form state
+  const [showNewThreadForm, setShowNewThreadForm] = useState(false);
+  const [newThreadTitle, setNewThreadTitle] = useState('');
+  const [newThreadContent, setNewThreadContent] = useState('');
+  const [newThreadCategory, setNewThreadCategory] = useState('discussion');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   // WebSocket hook for real-time updates
   const { isConnected, subscribeToLeaderboard, subscribeToCommunity, on } = useWebSocket('current-user');
 
@@ -80,6 +87,36 @@ export default function Community() {
   }, [on]);
 
   const categories = ['discussion', 'question', 'guide', 'news'];
+
+  const handleCreateThread = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newThreadTitle.trim() || !newThreadContent.trim()) return;
+    
+    setIsSubmitting(true);
+    const newThread = await communityService.createThread(
+      newThreadTitle, 
+      newThreadContent, 
+      newThreadCategory
+    );
+    
+    if (newThread) {
+      // It will also be received via websocket, but we can optimistically update
+      setThreads(prev => [newThread, ...prev]);
+      setShowNewThreadForm(false);
+      setNewThreadTitle('');
+      setNewThreadContent('');
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleUpvote = async (threadId: string) => {
+    // Optimistic UI update
+    setThreads(prev => prev.map(t => 
+      t.id === threadId ? { ...t, upvotes: t.upvotes + 1 } : t
+    ));
+    
+    await communityService.upvoteThread(threadId);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -229,32 +266,93 @@ export default function Community() {
         {/* Threads Tab */}
         {activeTab === 'threads' && (
           <div className="space-y-6">
-            {/* Category Filter */}
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => setSelectedCategory(undefined)}
-                className={`px-4 py-2 rounded-lg font-semibold transition ${
-                  !selectedCategory
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                }`}
-              >
-                All Categories
-              </button>
-              {categories.map(cat => (
+            {/* Category Filter & Actions */}
+            <div className="flex flex-col sm:flex-row justify-between gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-800 backdrop-blur-sm">
+              <div className="flex gap-2 flex-wrap">
                 <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
+                  onClick={() => setSelectedCategory(undefined)}
                   className={`px-4 py-2 rounded-lg font-semibold transition ${
-                    selectedCategory === cat
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                    !selectedCategory
+                      ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]'
+                      : 'bg-slate-800 text-gray-400 hover:bg-slate-700 hover:text-gray-200'
                   }`}
                 >
-                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  All Categories
                 </button>
-              ))}
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-4 py-2 rounded-lg font-semibold transition ${
+                      selectedCategory === cat
+                        ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]'
+                        : 'bg-slate-800 text-gray-400 hover:bg-slate-700 hover:text-gray-200'
+                    }`}
+                  >
+                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowNewThreadForm(!showNewThreadForm)}
+                className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg transition shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] flex items-center gap-2 justify-center"
+              >
+                <MessageSquare className="w-4 h-4" />
+                {showNewThreadForm ? 'Cancel' : 'New Thread'}
+              </button>
             </div>
+
+            {/* New Thread Form */}
+            {showNewThreadForm && (
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
+                <h3 className="text-xl font-bold text-white mb-4">Create a New Thread</h3>
+                <form onSubmit={handleCreateThread} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1">Title</label>
+                    <input
+                      type="text"
+                      required
+                      value={newThreadTitle}
+                      onChange={e => setNewThreadTitle(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      placeholder="What's on your mind?"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1">Category</label>
+                    <select
+                      value={newThreadCategory}
+                      onChange={e => setNewThreadCategory(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    >
+                      {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1">Content</label>
+                    <textarea
+                      required
+                      rows={4}
+                      value={newThreadContent}
+                      onChange={e => setNewThreadContent(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none"
+                      placeholder="Describe your question or share your thoughts..."
+                    ></textarea>
+                  </div>
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold rounded-lg transition shadow-[0_0_15px_rgba(37,99,235,0.4)] flex items-center gap-2"
+                    >
+                      {isSubmitting ? 'Posting...' : 'Post Thread'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
 
             {/* Threads List */}
             <div className="space-y-4">
@@ -298,19 +396,25 @@ export default function Community() {
                     ))}
                   </div>
 
-                  <div className="flex items-center gap-6 text-sm text-gray-400 border-t border-slate-700 pt-3">
-                    <span className="flex items-center gap-1">
+                  <div className="flex items-center gap-6 text-sm text-gray-400 border-t border-slate-700 pt-4 mt-2">
+                    <button className="flex items-center gap-1.5 hover:text-blue-400 transition-colors">
                       <MessageSquare className="w-4 h-4" />
                       {thread.replies} replies
-                    </span>
-                    <span className="flex items-center gap-1">
+                    </button>
+                    <span className="flex items-center gap-1.5">
                       <Eye className="w-4 h-4" />
                       {thread.views} views
                     </span>
-                    <span className="flex items-center gap-1">
-                      <ThumbsUp className="w-4 h-4" />
-                      {thread.upvotes} upvotes
-                    </span>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUpvote(thread.id);
+                      }}
+                      className="flex items-center gap-1.5 hover:text-emerald-400 transition-colors group"
+                    >
+                      <ThumbsUp className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                      <span className="group-hover:font-medium">{thread.upvotes} upvotes</span>
+                    </button>
                   </div>
                 </div>
               ))}

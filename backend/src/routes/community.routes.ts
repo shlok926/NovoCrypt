@@ -146,18 +146,8 @@ router.post('/threads/create', async (req, res) => {
       return res.status(400).json({ success: false, error: 'title and author required' });
     }
     
-    // Create thread (for now just mock)
-    const newThread = {
-      id: `thread-${Date.now()}`,
-      title,
-      content,
-      category: category || 'discussion',
-      author,
-      createdAt: new Date(),
-      replies: 0,
-      views: 0,
-      upvotes: 0,
-    };
+    // Create thread in memory store
+    const newThread = await communityService.createThread(title, content, category || 'discussion', author);
     
     // Broadcast new thread to all clients
     broadcastNewThread(newThread);
@@ -165,6 +155,24 @@ router.post('/threads/create', async (req, res) => {
     res.json({ success: true, data: newThread, message: 'Thread created and broadcasted' });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to create thread' });
+  }
+});
+
+// Upvote thread
+router.post('/threads/:id/upvote', async (req, res) => {
+  try {
+    const thread = await communityService.upvoteThread(req.params.id);
+    if (!thread) {
+      return res.status(404).json({ success: false, error: 'Thread not found' });
+    }
+    
+    // In a real app we'd broadcast just the upvote update
+    // For now we can reuse broadcastNewThread as a hack or just let the client poll/update state locally
+    // broadcastNewThread(thread); 
+    
+    res.json({ success: true, data: thread });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to upvote thread' });
   }
 });
 
