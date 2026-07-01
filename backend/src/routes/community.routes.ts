@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { communityService } from '../services/community.service';
-import { broadcastLeaderboardUpdate, broadcastScoreUpdate, broadcastNewThread, broadcastTrendingUpdate } from '../config/websocket';
+import { broadcastLeaderboardUpdate, broadcastScoreUpdate, broadcastNewThread, broadcastTrendingUpdate, broadcastThreadUpdate } from '../config/websocket';
+import { requireAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -115,11 +116,12 @@ router.get('/trending', async (req, res) => {
 });
 
 // Update user score (triggers real-time broadcast)
-router.post('/score/update', async (req, res) => {
+router.post('/score/update', requireAuth, async (req, res) => {
   try {
-    const { userId, points, reason } = req.body;
-    if (!userId || !points) {
-      return res.status(400).json({ success: false, error: 'userId and points required' });
+    const { points, reason } = req.body;
+    const userId = req.user.userId;
+    if (!points) {
+      return res.status(400).json({ success: false, error: 'points required' });
     }
     
     // Update would happen here (for now just mock)
@@ -138,16 +140,16 @@ router.post('/score/update', async (req, res) => {
   }
 });
 
-// Create new thread (triggers real-time broadcast)
-router.post('/threads/create', async (req, res) => {
+// Create new thread
+router.post('/threads/create', requireAuth, async (req, res) => {
   try {
-    const { title, content, category, author } = req.body;
-    if (!title || !author) {
-      return res.status(400).json({ success: false, error: 'title and author required' });
+    const { title, content, category } = req.body;
+    if (!title || !content) {
+      return res.status(400).json({ success: false, error: 'title and content required' });
     }
     
-    // Create thread in memory store
-    const newThread = await communityService.createThread(title, content, category || 'discussion', author);
+    // Create thread in DB using authenticated user
+    const newThread = await communityService.createThread(title, content, category || 'discussion', req.user.userId);
     
     // Broadcast new thread to all clients
     broadcastNewThread(newThread);
@@ -159,16 +161,15 @@ router.post('/threads/create', async (req, res) => {
 });
 
 // Upvote thread
-router.post('/threads/:id/upvote', async (req, res) => {
+router.post('/threads/:id/upvote', requireAuth, async (req, res) => {
   try {
-    const thread = await communityService.upvoteThread(req.params.id);
+    const thread = await communityService.upvoteThread(req.params.id, req.user.userId);
     if (!thread) {
       return res.status(404).json({ success: false, error: 'Thread not found' });
     }
     
-    // In a real app we'd broadcast just the upvote update
-    // For now we can reuse broadcastNewThread as a hack or just let the client poll/update state locally
-    // broadcastNewThread(thread); 
+    // Broadcast the upvote update
+    broadcastThreadUpdate(thread); 
     
     res.json({ success: true, data: thread });
   } catch (error) {
@@ -177,20 +178,20 @@ router.post('/threads/:id/upvote', async (req, res) => {
 });
 
 // Reply to thread
-router.post('/threads/:id/reply', async (req, res) => {
+router.post('/threads/:id/reply', requireAuth, async (req, res) => {
   try {
-    const { content, author } = req.body;
-    if (!content || !author) {
-      return res.status(400).json({ success: false, error: 'content and author required' });
+    const { content } = req.body;
+    if (!content) {
+      return res.status(400).json({ success: false, error: 'content required' });
     }
 
-    const thread = await communityService.replyToThread(req.params.id, author, content);
+    const thread = await communityService.replyToThread(req.params.id, req.user.userId, content);
     if (!thread) {
       return res.status(404).json({ success: false, error: 'Thread not found' });
     }
     
     // Broadcast the updated thread with new reply
-    broadcastNewThread(thread);
+    broadcastThreadUpdate(thread);
     
     res.json({ success: true, data: thread });
   } catch (error) {

@@ -63,11 +63,11 @@ export function useWebSocket(userId: string | null) {
       triggerHandlers('thread_created', event);
     });
 
-    // Thread replies
-    socket.on('thread_reply', (event: RealTimeEvent) => {
-      console.log('💬 Reply to thread:', event.data);
+    // Thread replies / updates (Scoped)
+    socket.on('thread_updated', (event: RealTimeEvent) => {
+      console.log('💬 Thread updated:', event.data);
       setEvents((prev) => [...prev, event]);
-      triggerHandlers('thread_reply', event);
+      triggerHandlers('thread_updated', event);
     });
 
     // Achievements
@@ -123,6 +123,22 @@ export function useWebSocket(userId: string | null) {
     }
   }, []);
 
+  // Subscribe to specific thread
+  const subscribeToThread = useCallback((threadId: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('subscribe_thread', threadId);
+      console.log(`Subscribed to thread ${threadId}`);
+    }
+  }, []);
+
+  // Unsubscribe from specific thread
+  const unsubscribeFromThread = useCallback((threadId: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('unsubscribe_thread', threadId);
+      console.log(`Unsubscribed from thread ${threadId}`);
+    }
+  }, []);
+
   // Register event handler
   const on = useCallback((type: string, handler: (event: RealTimeEvent) => void) => {
     if (!eventHandlersRef.current.has(type)) {
@@ -147,6 +163,8 @@ export function useWebSocket(userId: string | null) {
     events,
     subscribeToLeaderboard,
     subscribeToCommunity,
+    subscribeToThread,
+    unsubscribeFromThread,
     on,
     socket: socketRef.current,
   };

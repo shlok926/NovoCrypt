@@ -52,10 +52,22 @@ export function initializeWebSocket(server: HTTPServer): SocketIOServer {
       console.log(`📊 Socket ${socket.id} subscribed to leaderboard`);
     });
 
-    // Subscribe to community threads
+    // Subscribe to community threads list
     socket.on('subscribe_community', () => {
       socket.join('community');
       console.log(`💬 Socket ${socket.id} subscribed to community`);
+    });
+
+    // Subscribe to a specific thread's updates
+    socket.on('subscribe_thread', (threadId: string) => {
+      socket.join(`thread_${threadId}`);
+      console.log(`💬 Socket ${socket.id} subscribed to thread_${threadId}`);
+    });
+    
+    // Unsubscribe from a specific thread
+    socket.on('unsubscribe_thread', (threadId: string) => {
+      socket.leave(`thread_${threadId}`);
+      console.log(`💬 Socket ${socket.id} unsubscribed from thread_${threadId}`);
     });
 
     // Handle disconnection
@@ -110,16 +122,24 @@ export function broadcastNewThread(threadData: any) {
   console.log('📡 Broadcasted new thread');
 }
 
-// Broadcast new reply to thread
-export function broadcastThreadReply(threadId: string, replyData: any) {
+// Broadcast thread update (replies, upvotes)
+export function broadcastThreadUpdate(threadData: any) {
   if (!io) return;
-  io.to('community').emit('thread_reply', {
-    type: 'thread_reply',
-    threadId,
-    data: replyData,
+  // Broadcast to anyone specifically viewing this thread
+  io.to(`thread_${threadData.id}`).emit('thread_updated', {
+    type: 'thread_updated',
+    data: threadData,
     timestamp: Date.now(),
   });
-  console.log(`📡 Broadcasted reply to thread ${threadId}`);
+  
+  // Optionally, if we want the main community list to update, we can also broadcast to 'community'
+  // But to save bandwidth we could skip it or just send a lightweight event
+  io.to('community').emit('thread_updated', {
+    type: 'thread_updated',
+    data: threadData,
+    timestamp: Date.now(),
+  });
+  console.log(`📡 Broadcasted update for thread ${threadData.id}`);
 }
 
 // Broadcast achievement unlocked

@@ -26,7 +26,7 @@ export const Login: React.FC = () => {
       addToast('Logged in successfully!', 'success');
       navigate('/dashboard');
     } catch (error: any) {
-      addToast(error.response?.data?.message || 'Login failed', 'error');
+      addToast(error.response?.data?.error?.message || error.response?.data?.message || 'Login failed', 'error');
     } finally {
       setIsLoading(false);
     }

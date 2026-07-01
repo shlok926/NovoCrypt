@@ -93,6 +93,17 @@ export interface CommunityThread {
   replies: number;
   views: number;
   upvotes: number;
+  replyList?: {
+    id: string;
+    content: string;
+    createdAt: string;
+    author: {
+      id: string;
+      username: string;
+      avatar: string;
+      knowledgeLevel: string;
+    };
+  }[];
 }
 
 export interface TrendingTopic {

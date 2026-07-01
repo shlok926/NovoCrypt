@@ -120,30 +120,13 @@ export const communityService = {
     return [];
   },
 
-  async createThread(title: string, content: string, category: string, authorPayload: any) {
-    // Upsert a dummy user based on authorPayload to satisfy Foreign Keys until Auth is real
-    // Use a fixed valid UUID for the dummy user to avoid Prisma UUID validation errors
-    const dummyUserId = '00000000-0000-0000-0000-000000000001';
-    const email = `dummy1@temp.com`;
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: {},
-      create: {
-        id: dummyUserId,
-        email,
-        passwordHash: 'dummy',
-        name: authorPayload.username || 'User',
-        avatar: authorPayload.avatar || '👤',
-        knowledgeLevel: authorPayload.knowledgeLevel || 'beginner'
-      }
-    });
-
+  async createThread(title: string, content: string, category: string, authorId: string) {
     const t = await prisma.communityThread.create({
       data: {
         title,
         content,
         category,
-        authorId: user.id,
+        authorId,
         tags: []
       },
       include: { author: true, replies: { include: { author: true } }, _count: { select: { replies: true, userUpvotes: true } } }
@@ -169,41 +152,34 @@ export const communityService = {
     };
   },
 
-  async upvoteThread(threadId: string) {
-    // Without a real user, we just return the thread and pretend it worked for now, or just increment
-    // Actually, we can increment upvotes natively in Prisma if we had an upvotes count column
-    // For now we'll do an update
-    const t = await prisma.communityThread.update({
-      where: { id: threadId },
-      data: { upvotes: { increment: 1 } },
-      include: { author: true, replies: { include: { author: true } }, _count: { select: { replies: true, userUpvotes: true } } }
-    });
+  async upvoteThread(threadId: string, userId: string) {
+    // Use an upsert-like operation to ensure a user only upvotes once
+    try {
+      await prisma.threadUpvote.create({
+        data: {
+          threadId,
+          userId
+        }
+      });
+      
+      await prisma.communityThread.update({
+        where: { id: threadId },
+        data: { upvotes: { increment: 1 } }
+      });
+    } catch (e) {
+      // If unique constraint fails (already upvoted), just ignore
+    }
     
     // We return a mapped thread
     return await this.getThreadById(threadId);
   },
 
-  async replyToThread(threadId: string, authorPayload: any, content: string) {
-    const dummyUserId = '00000000-0000-0000-0000-000000000001';
-    const email = `dummy1@temp.com`;
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: {},
-      create: {
-        id: dummyUserId,
-        email,
-        passwordHash: 'dummy',
-        name: authorPayload.username || 'User',
-        avatar: authorPayload.avatar || '👤',
-        knowledgeLevel: authorPayload.knowledgeLevel || 'beginner'
-      }
-    });
-
+  async replyToThread(threadId: string, authorId: string, content: string) {
     await prisma.communityReply.create({
       data: {
         content,
         threadId,
-        authorId: user.id
+        authorId
       }
     });
 

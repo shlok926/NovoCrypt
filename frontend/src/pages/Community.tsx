@@ -3,6 +3,7 @@ import { Trophy, MessageSquare, Eye, ThumbsUp, Tag, TrendingUp, Zap, Shield } fr
 import { communityService } from '@/services/complianceCommunityService';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { LeaderboardEntry, CommunityThread, TrendingTopic } from '@/types/compliance-community-chatbot.types';
+import { useAuthStore } from '@/store/authStore';
 
 export default function Community() {
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'threads' | 'trending'>('leaderboard');
@@ -20,12 +21,29 @@ export default function Community() {
   const [newThreadCategory, setNewThreadCategory] = useState('discussion');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  const { user } = useAuthStore();
+  
   // WebSocket hook for real-time updates
-  const { isConnected, subscribeToLeaderboard, subscribeToCommunity, on } = useWebSocket('current-user');
+  const { 
+    on, 
+    isConnected, 
+    subscribeToLeaderboard, 
+    subscribeToCommunity,
+    subscribeToThread,
+    unsubscribeFromThread 
+  } = useWebSocket(user?.id || 'anonymous');
 
   useEffect(() => {
     setWsStatus(isConnected ? 'connected' : 'disconnected');
   }, [isConnected]);
+
+  // Connect to global rooms on mount
+  useEffect(() => {
+    if (isConnected) {
+      subscribeToLeaderboard();
+      subscribeToCommunity();
+    }
+  }, [isConnected, subscribeToLeaderboard, subscribeToCommunity]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -40,12 +58,6 @@ export default function Community() {
     };
     loadData();
   }, [selectedCategory]);
-
-  // Subscribe to real-time updates on mount
-  useEffect(() => {
-    subscribeToLeaderboard();
-    subscribeToCommunity();
-  }, [subscribeToLeaderboard, subscribeToCommunity]);
 
   // Listen for leaderboard updates
   useEffect(() => {
@@ -77,6 +89,19 @@ export default function Community() {
     });
     return unsubscribe;
   }, [on, selectedCategory]);
+
+  // Listen for thread updates
+  useEffect(() => {
+    const unsubscribe = on('thread_updated', (event) => {
+      console.log('🔄 Thread updated:', event.data);
+      if (selectedThread && selectedThread.id === event.data.id) {
+        setSelectedThread(event.data);
+        if (event.data.replyList) setDummyReplies(event.data.replyList);
+      }
+      setThreads(prev => prev.map(t => t.id === event.data.id ? event.data : t));
+    });
+    return unsubscribe;
+  }, [on, selectedThread]);
 
   // Listen for trending updates
   useEffect(() => {
@@ -134,21 +159,18 @@ export default function Community() {
     if (thread.replyList && thread.replyList.length > 0) {
       setDummyReplies(thread.replyList);
     } else {
-      setDummyReplies([
-        {
-          id: 'reply-1',
-          author: { username: 'SecurityMaven', avatar: '🛡️', knowledgeLevel: 'expert' },
-          content: 'This is a great question. In our migration, we found that focusing on crypto-agility first was the key. Have you looked into the hybrid approach?',
-          createdAt: '1 hour ago'
-        },
-        {
-          id: 'reply-2',
-          author: { username: 'CryptoGuardian', avatar: '🔐', knowledgeLevel: 'advanced' },
-          content: 'I agree with SecurityMaven. You can also check out NIST SP 800-175B for specific timelines and compliance requirements.',
-          createdAt: '30 mins ago'
-        }
-      ]);
+      setDummyReplies([]);
     }
+    
+    // Subscribe to specific thread updates for real-time replies
+    subscribeToThread(thread.id);
+  };
+
+  const handleBackToThreads = () => {
+    if (selectedThread) {
+      unsubscribeFromThread(selectedThread.id);
+    }
+    setSelectedThread(null);
   };
 
   const handlePostReply = async (e: React.FormEvent) => {
@@ -484,7 +506,7 @@ export default function Community() {
         {activeTab === 'threads' && selectedThread && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <button 
-              onClick={() => setSelectedThread(null)}
+              onClick={handleBackToThreads}
               className="flex items-center gap-2 text-slate-400 hover:text-white transition"
             >
               ← Back to Threads

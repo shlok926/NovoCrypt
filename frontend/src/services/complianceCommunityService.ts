@@ -144,21 +144,12 @@ export const communityService = {
     }
   },
 
-  async createThread(title: string, content: string, category: string): Promise<CommunityThread | null> {
+  async createThread(title: string, content: string, category?: string): Promise<CommunityThread | null> {
     try {
-      // Mock user author for now until full auth is wired in the frontend state
-      const author = {
-        id: 'user-current',
-        username: 'You',
-        avatar: '👤',
-        knowledgeLevel: 'intermediate'
-      };
-      
       const response = await api.post(`${COMMUNITY_API_BASE}/threads/create`, {
         title,
         content,
-        category,
-        author
+        category
       });
       return response.data.data;
     } catch (error) {
@@ -179,16 +170,8 @@ export const communityService = {
 
   async replyToThread(threadId: string, content: string): Promise<CommunityThread | null> {
     try {
-      // Mock user author for now
-      const author = {
-        id: 'user-current',
-        username: 'You',
-        avatar: '👤',
-        knowledgeLevel: 'intermediate'
-      };
       const response = await api.post(`${COMMUNITY_API_BASE}/threads/${threadId}/reply`, {
-        content,
-        author
+        content
       });
       return response.data.data;
     } catch (error) {

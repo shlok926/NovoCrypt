@@ -34,7 +34,7 @@ export const Register: React.FC = () => {
       addToast('Account created successfully!', 'success');
       navigate('/dashboard');
     } catch (error: any) {
-      addToast(error.response?.data?.message || 'Registration failed', 'error');
+      addToast(error.response?.data?.error?.message || error.response?.data?.message || 'Registration failed', 'error');
     } finally {
       setIsLoading(false);
     }
