@@ -1,5 +1,4 @@
 import React from 'react';
-import { Select } from '../ui/Input';
 import { Button } from '../ui/Button';
 
 interface RiskAssessmentFormProps {

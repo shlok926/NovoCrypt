@@ -7,7 +7,7 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-transparent py-12 overflow-hidden">
+    <div className="min-h-screen bg-transparent py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollReveal>
           <h1 className="text-4xl font-bold text-white mb-8">Your Dashboard</h1>

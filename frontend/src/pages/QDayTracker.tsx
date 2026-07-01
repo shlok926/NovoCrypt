@@ -5,9 +5,11 @@ import CompanyRaceTrack from '../components/qday/CompanyRaceTrack';
 import CountryReadinessMap from '../components/qday/CountryReadinessMap';
 import { ScrollReveal } from '../components/ui/ScrollReveal';
 
+import { Link } from 'react-router-dom';
+
 export default function QDayTracker() {
   return (
-    <div className="min-h-screen bg-slate-950 py-12 overflow-hidden">
+    <div className="min-h-screen bg-slate-950 py-12">
       <div className="max-w-7xl mx-auto px-4 space-y-12">
         {/* Header */}
         <ScrollReveal>
@@ -73,12 +75,16 @@ export default function QDayTracker() {
               Adversaries are harvesting your data today to decrypt it when Q-Day arrives. Start assessing your risk now.
             </p>
             <div className="flex gap-4 justify-center flex-wrap">
-              <button className="px-8 py-3 bg-purple-500 hover:bg-purple-400 text-white font-semibold rounded-lg transition-colors">
-                Start Risk Assessment
-              </button>
-              <button className="px-8 py-3 border-2 border-slate-700 text-white font-semibold rounded-lg hover:bg-slate-800 transition-colors">
-                View Migration Planner
-              </button>
+              <Link to="/risk">
+                <button className="px-8 py-3 bg-purple-500 hover:bg-purple-400 text-white font-semibold rounded-lg transition-colors">
+                  Start Risk Assessment
+                </button>
+              </Link>
+              <Link to="/migration-planner">
+                <button className="px-8 py-3 border-2 border-slate-700 text-white font-semibold rounded-lg hover:bg-slate-800 transition-colors">
+                  View Migration Planner
+                </button>
+              </Link>
             </div>
           </section>
         </ScrollReveal>
