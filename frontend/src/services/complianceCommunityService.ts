@@ -177,6 +177,26 @@ export const communityService = {
     }
   },
 
+  async replyToThread(threadId: string, content: string): Promise<CommunityThread | null> {
+    try {
+      // Mock user author for now
+      const author = {
+        id: 'user-current',
+        username: 'You',
+        avatar: '👤',
+        knowledgeLevel: 'intermediate'
+      };
+      const response = await api.post(`${COMMUNITY_API_BASE}/threads/${threadId}/reply`, {
+        content,
+        author
+      });
+      return response.data.data;
+    } catch (error) {
+      console.warn('Failed to reply to thread', error);
+      return null;
+    }
+  },
+
   async getPopularThreads(limit: number = 5): Promise<CommunityThread[]> {
     try {
       const response = await api.get(`${COMMUNITY_API_BASE}/threads-popular?limit=${limit}`);

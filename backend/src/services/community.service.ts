@@ -47,6 +47,12 @@ export interface CommunityThread {
   replies: number;
   views: number;
   upvotes: number;
+  replyList?: {
+    id: string;
+    author: { username: string; avatar: string; knowledgeLevel: string };
+    content: string;
+    createdAt: string;
+  }[];
 }
 
 const MOCK_USERS: UserProfile[] = [
@@ -330,6 +336,26 @@ export const communityService = {
     const thread = MOCK_THREADS.find(t => t.id === threadId);
     if (thread) {
       thread.upvotes += 1;
+      return thread;
+    }
+    return null;
+  },
+
+  async replyToThread(threadId: string, author: any, content: string): Promise<CommunityThread | null> {
+    const thread = MOCK_THREADS.find(t => t.id === threadId);
+    if (thread) {
+      const newReply = {
+        id: `reply-${Date.now()}`,
+        author,
+        content,
+        createdAt: new Date().toISOString()
+      };
+      
+      thread.replies += 1;
+      if (!thread.replyList) {
+        thread.replyList = [];
+      }
+      thread.replyList.push(newReply);
       return thread;
     }
     return null;

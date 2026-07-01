@@ -128,43 +128,51 @@ export default function Community() {
   const [replyText, setReplyText] = useState('');
   const [dummyReplies, setDummyReplies] = useState<any[]>([]);
 
-  // When a thread is selected, generate some dummy replies for demo
+  // When a thread is selected, initialize replies from backend or use defaults
   const handleSelectThread = (thread: CommunityThread) => {
     setSelectedThread(thread);
-    setDummyReplies([
-      {
-        id: 'reply-1',
-        author: { username: 'SecurityMaven', avatar: '🛡️', knowledgeLevel: 'expert' },
-        content: 'This is a great question. In our migration, we found that focusing on crypto-agility first was the key. Have you looked into the hybrid approach?',
-        createdAt: '1 hour ago'
-      },
-      {
-        id: 'reply-2',
-        author: { username: 'CryptoGuardian', avatar: '🔐', knowledgeLevel: 'advanced' },
-        content: 'I agree with SecurityMaven. You can also check out NIST SP 800-175B for specific timelines and compliance requirements.',
-        createdAt: '30 mins ago'
-      }
-    ]);
+    if (thread.replyList && thread.replyList.length > 0) {
+      setDummyReplies(thread.replyList);
+    } else {
+      setDummyReplies([
+        {
+          id: 'reply-1',
+          author: { username: 'SecurityMaven', avatar: '🛡️', knowledgeLevel: 'expert' },
+          content: 'This is a great question. In our migration, we found that focusing on crypto-agility first was the key. Have you looked into the hybrid approach?',
+          createdAt: '1 hour ago'
+        },
+        {
+          id: 'reply-2',
+          author: { username: 'CryptoGuardian', avatar: '🔐', knowledgeLevel: 'advanced' },
+          content: 'I agree with SecurityMaven. You can also check out NIST SP 800-175B for specific timelines and compliance requirements.',
+          createdAt: '30 mins ago'
+        }
+      ]);
+    }
   };
 
-  const handlePostReply = (e: React.FormEvent) => {
+  const handlePostReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyText.trim()) return;
+    if (!replyText.trim() || !selectedThread) return;
     
-    setDummyReplies([...dummyReplies, {
-      id: `reply-${Date.now()}`,
-      author: { username: 'You', avatar: '👤', knowledgeLevel: 'intermediate' },
-      content: replyText,
-      createdAt: 'Just now'
-    }]);
+    setIsSubmitting(true);
     
-    // Update reply count optimistically
-    if (selectedThread) {
-      const updatedThread = { ...selectedThread, replies: selectedThread.replies + 1 };
+    // Call backend API to persist reply
+    const updatedThread = await communityService.replyToThread(selectedThread.id, replyText);
+    
+    if (updatedThread) {
+      // Update selected thread state
       setSelectedThread(updatedThread);
+      // Update replies list from backend
+      if (updatedThread.replyList) {
+        setDummyReplies(updatedThread.replyList);
+      }
+      // Update the thread in the main list
       setThreads(prev => prev.map(t => t.id === updatedThread.id ? updatedThread : t));
     }
+    
     setReplyText('');
+    setIsSubmitting(false);
   };
 
   return (
@@ -576,9 +584,10 @@ export default function Community() {
                 <div className="flex justify-end">
                   <button
                     type="submit"
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition shadow-[0_0_15px_rgba(37,99,235,0.3)] flex items-center gap-2"
+                    disabled={isSubmitting}
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold rounded-lg transition shadow-[0_0_15px_rgba(37,99,235,0.3)] flex items-center gap-2"
                   >
-                    Post Reply
+                    {isSubmitting ? 'Posting...' : 'Post Reply'}
                   </button>
                 </div>
               </form>

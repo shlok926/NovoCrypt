@@ -176,4 +176,26 @@ router.post('/threads/:id/upvote', async (req, res) => {
   }
 });
 
+// Reply to thread
+router.post('/threads/:id/reply', async (req, res) => {
+  try {
+    const { content, author } = req.body;
+    if (!content || !author) {
+      return res.status(400).json({ success: false, error: 'content and author required' });
+    }
+
+    const thread = await communityService.replyToThread(req.params.id, author, content);
+    if (!thread) {
+      return res.status(404).json({ success: false, error: 'Thread not found' });
+    }
+    
+    // Broadcast the updated thread with new reply
+    broadcastNewThread(thread);
+    
+    res.json({ success: true, data: thread });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to reply to thread' });
+  }
+});
+
 export default router;
