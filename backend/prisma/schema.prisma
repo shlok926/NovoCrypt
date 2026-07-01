@@ -243,6 +243,8 @@ model User {
   email           String           @unique @db.VarChar(255)
   passwordHash    String           @map("password_hash") @db.VarChar(255)
   name            String?          @db.VarChar(255)
+  avatar          String?          @db.VarChar(50)
+  knowledgeLevel  String           @default("beginner") @map("knowledge_level") @db.VarChar(50)
   role            String           @default("free") @db.VarChar(50)
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
@@ -256,6 +258,54 @@ model User {
   quizAttempts    QuizAttempt[]    @relation("QuizAttempts")
   userBadges      UserBadge[]      @relation("UserBadges")
   chatSessions    ChatSession[]    @relation("ChatSessions")
+  communityThreads CommunityThread[] @relation("ThreadAuthor")
+  communityReplies CommunityReply[]  @relation("ReplyAuthor")
+  threadUpvotes   ThreadUpvote[]   @relation("UserUpvotes")
 
   @@map("users")
+}
+
+// FEATURE 9: COMMUNITY THREADS & REPLIES
+model CommunityThread {
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String   @db.VarChar(500)
+  content   String   @db.Text
+  category  String   @db.VarChar(100)
+  authorId  String   @map("author_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  views     Int      @default(0)
+  upvotes   Int      @default(0)
+  tags      String[]
+
+  author    User              @relation("ThreadAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  replies   CommunityReply[]  @relation("ThreadReplies")
+  userUpvotes ThreadUpvote[]  @relation("ThreadUpvotes")
+
+  @@map("community_threads")
+}
+
+model CommunityReply {
+  id        String   @id @default(uuid()) @db.Uuid
+  threadId  String   @map("thread_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  thread    CommunityThread @relation("ThreadReplies", fields: [threadId], references: [id], onDelete: Cascade)
+  author    User            @relation("ReplyAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("community_replies")
+}
+
+model ThreadUpvote {
+  id        String   @id @default(uuid()) @db.Uuid
+  threadId  String   @map("thread_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  thread    CommunityThread @relation("ThreadUpvotes", fields: [threadId], references: [id], onDelete: Cascade)
+  user      User            @relation("UserUpvotes", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@map("thread_upvotes")
 }
