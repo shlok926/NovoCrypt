@@ -47,12 +47,12 @@ export const Dashboard: React.FC = () => {
         <motion.div variants={itemVariants} className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900/50 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-sm">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xl border-4 border-slate-950 shadow-lg">
-              {user?.role === 'admin' ? '🛡️' : '👤'}
+              {user?.role === 'enterprise' ? '🏢' : '👤'}
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white flex items-center gap-2">
                 Welcome back, {user?.name || 'Commander'}
-                {user?.role === 'admin' && <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full border border-blue-500/30">Admin</span>}
+                {user?.role === 'enterprise' && <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded-full border border-purple-500/30">Enterprise</span>}
               </h1>
               <p className="text-slate-400">Your Quantum Readiness Command Center</p>
             </div>

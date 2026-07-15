@@ -1,9 +1,9 @@
-import { useThreatFeed } from '../hooks/useThreatFeed';
-import ThreatLevelBadge from '../components/threats/ThreatLevelBadge';
-import ThreatCard from '../components/threats/ThreatCard';
-import GovernmentAdvisory from '../components/threats/GovernmentAdvisory';
-import VendorAlert from '../components/threats/VendorAlert';
-import ThreatFilterBar from '../components/threats/ThreatFilterBar';
+import { useThreatFeed } from '../../hooks/useThreatFeed';
+import ThreatLevelBadge from './ThreatLevelBadge';
+import ThreatCard from './ThreatCard';
+import GovernmentAdvisory from './GovernmentAdvisory';
+import VendorAlert from './VendorAlert';
+import ThreatFilterBar from './ThreatFilterBar';
 import { useState } from 'react';
 
 export default function ThreatFeedComponent() {
@@ -45,14 +45,14 @@ export default function ThreatFeedComponent() {
           <div className="bg-orange-50 rounded-lg border border-orange-200 p-4">
             <p className="text-xs text-orange-600 font-semibold uppercase mb-1">High Risk</p>
             <p className="text-3xl font-bold text-orange-900">
-              {stats.bySeverity.find((s) => s.severity === 'high')?._count || 0}
+              {stats.bySeverity.find((s: any) => s.severity === 'high')?._count || 0}
             </p>
           </div>
 
           <div className="bg-red-50 rounded-lg border border-red-200 p-4">
             <p className="text-xs text-red-600 font-semibold uppercase mb-1">Critical</p>
             <p className="text-3xl font-bold text-red-900">
-              {stats.bySeverity.find((s) => s.severity === 'critical')?._count || 0}
+              {stats.bySeverity.find((s: any) => s.severity === 'critical')?._count || 0}
             </p>
           </div>
         </section>
@@ -87,7 +87,7 @@ export default function ThreatFeedComponent() {
 
         {feed && (
           <div className="space-y-3 mt-4">
-            {feed.items.map((item) => (
+            {feed.items.map((item: any) => (
               <ThreatCard key={item.id} threat={item} />
             ))}
           </div>

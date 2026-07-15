@@ -1,4 +1,4 @@
-import { ThreatLevel } from '../types/threat.types';
+import { ThreatLevel } from '../../types/threat.types';
 
 interface ThreatLevelBadgeProps {
   threatLevel: ThreatLevel | null;

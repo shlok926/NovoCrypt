@@ -28,7 +28,7 @@ export const Report: React.FC<ReportProps> = ({
       </div>
 
       {riskScore !== undefined && (
-        <Card variant={riskLevel} className="space-y-2">
+        <Card variant={riskLevel === 'high' || riskLevel === 'critical' ? 'warning' : 'default'} className="space-y-2">
           <div className="text-sm text-slate-600">Risk Score</div>
           <div className="text-4xl font-bold text-white">{riskScore}/100</div>
           {riskLevel && <div className="text-sm font-medium capitalize text-slate-300">{riskLevel} Risk</div>}

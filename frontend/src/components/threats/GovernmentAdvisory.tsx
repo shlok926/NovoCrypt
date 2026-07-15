@@ -1,4 +1,4 @@
-import { ThreatItem } from '../types/threat.types';
+import { ThreatItem } from '../../types/threat.types';
 
 interface GovernmentAdvisoryProps {
   advisories: ThreatItem[];

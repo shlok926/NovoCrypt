@@ -12,8 +12,8 @@ export const RSAKeyForm: React.FC<RSAKeyFormProps> = ({ onSubmit, loading = fals
   const [q, setQ] = React.useState('53');
   const [e, setE] = React.useState('17');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (ev: React.FormEvent) => {
+    ev.preventDefault();
     onSubmit?.({
       p: parseInt(p),
       q: parseInt(q),

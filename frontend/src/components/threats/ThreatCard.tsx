@@ -1,5 +1,5 @@
-import { ThreatItem } from '../types/threat.types';
-import { getSeverityColor, getCategoryIcon, formatRelativeTime } from '../hooks/useThreatFeed';
+import { ThreatItem } from '../../types/threat.types';
+import { getSeverityColor, getCategoryIcon, formatRelativeTime } from '../../hooks/useThreatFeed';
 
 interface ThreatCardProps {
   threat: ThreatItem;

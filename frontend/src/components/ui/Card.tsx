@@ -4,6 +4,7 @@ interface CardProps {
   children: React.ReactNode;
   className?: string;
   variant?: 'default' | 'highlight' | 'warning' | 'glass';
+  onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 const variantStyles = {
@@ -14,10 +15,11 @@ const variantStyles = {
 };
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ children, className = '', variant = 'default' }, ref) => {
+  ({ children, className = '', variant = 'default', onClick }, ref) => {
     return (
       <div
         ref={ref}
+        onClick={onClick}
         className={`
           rounded-lg p-6
           ${variantStyles[variant]}

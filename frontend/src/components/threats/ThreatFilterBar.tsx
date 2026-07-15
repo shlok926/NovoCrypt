@@ -1,4 +1,4 @@
-import { useThreatStore } from '../store/threatStore';
+import { useThreatStore } from '../../store/threatStore';
 
 interface ThreatFilterBarProps {
   onFilterChange?: (category?: string, severity?: string) => void;

@@ -1,3 +1,7 @@
+const gcd = (a: number, b: number): number => {
+  return b === 0 ? a : gcd(b, a % b);
+};
+
 // Shor's Algorithm Simulation (simplified for demo)
 // This simulates the quantum advantage without actual quantum computing
 
@@ -71,7 +75,7 @@ export const shorsAlgorithm = (n: number): ShorsResult => {
   // Step 4: Classical post-processing
   steps++;
   const x = Math.pow(a, period / 2);
-  const factor1 = Math.gcd(Math.round(x - 1), n);
+  const factor1 = gcd(Math.round(x - 1), n);
   const factor2 = n / factor1;
 
   const endTime = performance.now();
@@ -82,10 +86,3 @@ export const shorsAlgorithm = (n: number): ShorsResult => {
     time: endTime - startTime,
   };
 };
-
-// Extend Math.gcd if not available
-if (!Math.gcd) {
-  Math.gcd = (a: number, b: number): number => {
-    return b === 0 ? a : Math.gcd(b, a % b);
-  };
-}
