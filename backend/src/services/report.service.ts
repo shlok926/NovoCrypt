@@ -45,7 +45,7 @@ RISK SCORE
 ----------
 Score: ${assessment.riskScore}/100
 Level: ${assessment.riskLevel}
-Years Until Risk: ${assessment.yearsUntilRisk}
+Years Until Risk: ${Math.max(0, 2035 - new Date().getFullYear())}
 
 RECOMMENDATIONS
 ---------------
@@ -174,7 +174,7 @@ For more information, visit novocrypt.com
     <h2>Assessment Summary</h2>
     <div class="risk-score">${assessment.riskScore}</div>
     <div class="risk-level ${assessment.riskLevel.toLowerCase()}">${assessment.riskLevel}</div>
-    <p><strong>Years Until Risk:</strong> ${assessment.yearsUntilRisk} years (Q-Day: 2035)</p>
+    <p><strong>Years Until Risk:</strong> ${Math.max(0, 2035 - new Date().getFullYear())} years (Q-Day: 2035)</p>
 
     <h2>Assessment Details</h2>
     <div class="details">

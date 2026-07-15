@@ -1,5 +1,6 @@
 import * as forge from 'node-forge';
 import https from 'https';
+import tls from 'tls';
 
 export interface SSLCertificate {
   subject: string;
@@ -40,20 +41,25 @@ export async function fetchSSLCertificate(url: string): Promise<SSLCertificate |
           method: 'HEAD',
         },
         (res) => {
-          const cert = res.socket?.getPeerCertificate();
+          const socket = res.socket as tls.TLSSocket;
+          const cert = socket?.getPeerCertificate();
           if (!cert) {
             resolve(null);
             return;
           }
 
-          const pem = res.socket?.getPeerCertificate(false) as any;
+          const pem = socket?.getPeerCertificate(false) as any;
+          
+          const subjectCN = Array.isArray(cert.subject?.CN) ? cert.subject.CN[0] : cert.subject?.CN;
+          const issuerCN = Array.isArray(cert.issuer?.CN) ? cert.issuer.CN[0] : cert.issuer?.CN;
+          
           resolve({
-            subject: cert.subject?.CN || 'Unknown',
-            issuer: cert.issuer?.CN || 'Unknown',
+            subject: subjectCN || 'Unknown',
+            issuer: issuerCN || 'Unknown',
             validFrom: new Date(cert.valid_from),
             validTo: new Date(cert.valid_to),
-            keyAlgorithm: cert.asymmetricKeyType || 'Unknown',
-            keySize: (cert.asymmetricKeySize || 0) * 8,
+            keyAlgorithm: (cert as any).asymmetricKeyType || 'Unknown',
+            keySize: ((cert as any).asymmetricKeySize || 0) * 8,
             fingerprint: cert.fingerprint || '',
           });
 

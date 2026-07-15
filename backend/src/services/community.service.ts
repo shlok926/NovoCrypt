@@ -1,5 +1,5 @@
 import { prisma } from '../config/database';
-import { LeaderboardEntry, UserProfile, UserAchievement } from '../types';
+import { LeaderboardEntry, UserProfile, UserAchievement } from '../types/community.types';
 
 export const communityService = {
   // Mock data preserved for parts not yet migrated to Prisma

@@ -8,7 +8,7 @@ type TokenPayload = {
 };
 
 export const signAccessToken = (payload: TokenPayload): string =>
-  jwt.sign(payload, env.JWT_SECRET as string, { expiresIn: env.JWT_EXPIRES_IN });
+  jwt.sign(payload, env.JWT_SECRET as string, { expiresIn: env.JWT_EXPIRES_IN as any });
 
 export const verifyAccessToken = (token: string): TokenPayload =>
   jwt.verify(token, env.JWT_SECRET as string) as TokenPayload;

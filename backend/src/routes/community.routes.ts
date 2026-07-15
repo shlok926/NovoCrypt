@@ -119,7 +119,7 @@ router.get('/trending', async (req, res) => {
 router.post('/score/update', requireAuth, async (req, res) => {
   try {
     const { points, reason } = req.body;
-    const userId = req.user.userId;
+    const userId = req.user!.userId;
     if (!points) {
       return res.status(400).json({ success: false, error: 'points required' });
     }
@@ -149,7 +149,7 @@ router.post('/threads/create', requireAuth, async (req, res) => {
     }
     
     // Create thread in DB using authenticated user
-    const newThread = await communityService.createThread(title, content, category || 'discussion', req.user.userId);
+    const newThread = await communityService.createThread(title, content, category || 'discussion', req.user!.userId);
     
     // Broadcast new thread to all clients
     broadcastNewThread(newThread);
@@ -163,7 +163,7 @@ router.post('/threads/create', requireAuth, async (req, res) => {
 // Upvote thread
 router.post('/threads/:id/upvote', requireAuth, async (req, res) => {
   try {
-    const thread = await communityService.upvoteThread(req.params.id, req.user.userId);
+    const thread = await communityService.upvoteThread(req.params.id, req.user!.userId);
     if (!thread) {
       return res.status(404).json({ success: false, error: 'Thread not found' });
     }
@@ -185,7 +185,7 @@ router.post('/threads/:id/reply', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'content required' });
     }
 
-    const thread = await communityService.replyToThread(req.params.id, req.user.userId, content);
+    const thread = await communityService.replyToThread(req.params.id, req.user!.userId, content);
     if (!thread) {
       return res.status(404).json({ success: false, error: 'Thread not found' });
     }

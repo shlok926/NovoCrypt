@@ -27,10 +27,6 @@ export function initializeWebSocket(server: HTTPServer): SocketIOServer {
       credentials: true,
     },
     transports: ['websocket', 'polling'],
-    reconnection: true,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
-    reconnectionAttempts: 5,
   });
 
   // Track connected users
