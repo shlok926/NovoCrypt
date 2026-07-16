@@ -10,6 +10,7 @@ export default function ComplianceChecker() {
   const [algorithms, setAlgorithms] = useState<string[]>([]);
   const [result, setResult] = useState<ComplianceCheck | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const AVAILABLE_ALGORITHMS = [
     'RSA-2048', 'RSA-4096', 'ECDSA', 'SHA-1', 'SHA-256',
@@ -18,8 +19,12 @@ export default function ComplianceChecker() {
 
   useEffect(() => {
     const loadStandards = async () => {
-      const stds = await complianceService.getStandards();
-      setStandards(stds);
+      try {
+        const stds = await complianceService.getStandards();
+        setStandards(stds);
+      } catch (err: any) {
+        setError('Failed to load compliance standards. Please verify your connection.');
+      }
     };
     loadStandards();
   }, []);
@@ -46,16 +51,22 @@ export default function ComplianceChecker() {
       return;
     }
 
-    setLoading(true);
-    const checkResult = await complianceService.checkCompliance({
-      organizationName,
-      currentAlgorithms: algorithms,
-      targetStandards: selectedStandards
-    });
-    if (checkResult) {
-      setResult(checkResult);
+    try {
+      setLoading(true);
+      setError(null);
+      const checkResult = await complianceService.checkCompliance({
+        organizationName,
+        currentAlgorithms: algorithms,
+        targetStandards: selectedStandards
+      });
+      if (checkResult) {
+        setResult(checkResult);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Failed to generate compliance report.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const getSeverityColor = (severity: string) => {
@@ -195,6 +206,12 @@ export default function ComplianceChecker() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6 flex items-center gap-3">
+            <AlertCircle className="text-red-400 w-6 h-6 flex-shrink-0" />
+            <p className="text-red-200">{error}</p>
+          </div>
+        )}
         {/* Organization Info */}
         <div className="bg-slate-800 border border-slate-700 rounded-lg p-8 mb-8">
           <label className="block text-gray-300 font-semibold mb-3">Organization Name</label>

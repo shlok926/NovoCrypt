@@ -14,21 +14,27 @@ export default function ThreatFeed() {
   const [selectedCategory, setSelectedCategory] = useState<ThreatCategory | 'all'>('all');
   const [stats, setStats] = useState<any>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadThreats = async () => {
-      setLoading(true);
-      const filteredThreats = await threatService.getAllThreats({
-        severity: selectedSeverity === 'all' ? undefined : selectedSeverity,
-        category: selectedCategory === 'all' ? undefined : selectedCategory,
-        limit: 50
-      });
-      setThreats(filteredThreats);
+      try {
+        setLoading(true);
+        setError(null);
+        const filteredThreats = await threatService.getAllThreats({
+          severity: selectedSeverity === 'all' ? undefined : selectedSeverity,
+          category: selectedCategory === 'all' ? undefined : selectedCategory,
+          limit: 50
+        });
+        setThreats(filteredThreats);
 
-      const statistics = await threatService.getThreatStatistics();
-      setStats(statistics);
-
-      setLoading(false);
+        const statistics = await threatService.getThreatStatistics();
+        setStats(statistics);
+      } catch (err: any) {
+        setError('Failed to fetch threat intelligence. Please verify your connection.');
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadThreats();
@@ -99,6 +105,12 @@ export default function ThreatFeed() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6 flex items-center gap-3">
+            <AlertCircle className="text-red-400 w-6 h-6 flex-shrink-0" />
+            <p className="text-red-200">{error}</p>
+          </div>
+        )}
         {/* Statistics */}
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

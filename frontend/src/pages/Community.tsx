@@ -13,6 +13,7 @@ export default function Community() {
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
   const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [selectedThread, setSelectedThread] = useState<CommunityThread | null>(null);
+  const [error, setError] = useState<string | null>(null);
   
   // New thread form state
   const [showNewThreadForm, setShowNewThreadForm] = useState(false);
@@ -47,14 +48,20 @@ export default function Community() {
 
   useEffect(() => {
     const loadData = async () => {
-      const [lb, thrd, trend] = await Promise.all([
-        communityService.getLeaderboard(),
-        communityService.getThreads(selectedCategory),
-        communityService.getTrendingTopics()
-      ]);
-      setLeaderboard(lb);
-      setThreads(thrd);
-      setTrending(trend);
+      try {
+        setError(null);
+        const [lb, thrd, trend] = await Promise.all([
+          communityService.getLeaderboard(),
+          communityService.getThreads(selectedCategory),
+          communityService.getTrendingTopics()
+        ]);
+        setLeaderboard(lb);
+        setThreads(thrd);
+        setTrending(trend);
+      } catch (err) {
+        console.error('Failed to load community data:', err);
+        setError('Failed to load community data. Please verify your connection.');
+      }
     };
     loadData();
   }, [selectedCategory]);
@@ -119,20 +126,25 @@ export default function Community() {
     if (!newThreadTitle.trim() || !newThreadContent.trim()) return;
     
     setIsSubmitting(true);
-    const newThread = await communityService.createThread(
-      newThreadTitle, 
-      newThreadContent, 
-      newThreadCategory
-    );
-    
-    if (newThread) {
-      // It will also be received via websocket, but we can optimistically update
-      setThreads(prev => [newThread, ...prev]);
-      setShowNewThreadForm(false);
-      setNewThreadTitle('');
-      setNewThreadContent('');
+    try {
+      const newThread = await communityService.createThread(
+        newThreadTitle, 
+        newThreadContent, 
+        newThreadCategory
+      );
+      
+      if (newThread) {
+        // It will also be received via websocket, but we can optimistically update
+        setThreads(prev => [newThread, ...prev]);
+        setShowNewThreadForm(false);
+        setNewThreadTitle('');
+        setNewThreadContent('');
+      }
+    } catch (err) {
+      setError('Failed to create thread. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   const handleUpvote = async (threadId: string) => {
@@ -179,22 +191,27 @@ export default function Community() {
     
     setIsSubmitting(true);
     
-    // Call backend API to persist reply
-    const updatedThread = await communityService.replyToThread(selectedThread.id, replyText);
-    
-    if (updatedThread) {
-      // Update selected thread state
-      setSelectedThread(updatedThread);
-      // Update replies list from backend
-      if (updatedThread.replyList) {
-        setDummyReplies(updatedThread.replyList);
+    try {
+      // Call backend API to persist reply
+      const updatedThread = await communityService.replyToThread(selectedThread.id, replyText);
+      
+      if (updatedThread) {
+        // Update selected thread state
+        setSelectedThread(updatedThread);
+        // Update replies list from backend
+        if (updatedThread.replyList) {
+          setDummyReplies(updatedThread.replyList);
+        }
+        // Update the thread in the main list
+        setThreads(prev => prev.map(t => t.id === updatedThread.id ? updatedThread : t));
       }
-      // Update the thread in the main list
-      setThreads(prev => prev.map(t => t.id === updatedThread.id ? updatedThread : t));
+      
+      setReplyText('');
+    } catch (err) {
+      setError('Failed to post reply. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    setReplyText('');
-    setIsSubmitting(false);
   };
 
   return (
@@ -233,6 +250,13 @@ export default function Community() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 mb-8 flex items-center gap-3">
+            <AlertCircle className="text-rose-400 w-5 h-5 flex-shrink-0" />
+            <p className="text-rose-300 font-medium text-sm">{error}</p>
+          </div>
+        )}
+        
         {/* Tabs */}
         <div className="flex gap-4 mb-8 border-b border-slate-800">
           {(['leaderboard', 'threads', 'trending'] as const).map(tab => (

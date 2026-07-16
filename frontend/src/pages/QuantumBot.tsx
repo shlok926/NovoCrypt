@@ -19,8 +19,12 @@ export default function QuantumBot() {
 
   useEffect(() => {
     const loadSuggestions = async () => {
-      const sug = await chatbotService.getSuggestions();
-      setSuggestions(sug);
+      try {
+        const sug = await chatbotService.getSuggestions();
+        setSuggestions(sug);
+      } catch (err) {
+        console.error('Failed to load chatbot suggestions', err);
+      }
     };
     loadSuggestions();
   }, []);
@@ -46,16 +50,18 @@ export default function QuantumBot() {
     setLoading(true);
 
     // Get bot response
-    const botResponse = await chatbotService.sendMessage(content);
-    
-    if (botResponse) {
-      setMessages(prev => [...prev, botResponse]);
-    } else {
-      // Fallback response
+    try {
+      const botResponse = await chatbotService.sendMessage(content);
+      
+      if (botResponse) {
+        setMessages(prev => [...prev, botResponse]);
+      }
+    } catch (err: any) {
+      // Fallback response on error
       setMessages(prev => [...prev, {
         id: `bot-${Date.now()}`,
         role: 'assistant',
-        content: 'I encountered an issue processing your question. Please try again or ask another question about quantum cryptography.',
+        content: err.response?.data?.message || 'I encountered an issue processing your question. Please verify your connection or try again.',
         timestamp: new Date().toISOString()
       }]);
     }

@@ -15,11 +15,16 @@ export default function MigrationPlanner() {
     budget: 'medium',
     timeline: 'standard'
   });
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadTemplates = async () => {
-      const temps = await migrationService.getMigrationTemplates();
-      setTemplates(temps);
+      try {
+        const temps = await migrationService.getMigrationTemplates();
+        setTemplates(temps);
+      } catch (err: any) {
+        setError('Failed to load migration templates.');
+      }
     };
     loadTemplates();
   }, []);
@@ -39,13 +44,19 @@ export default function MigrationPlanner() {
       return;
     }
 
-    setLoading(true);
-    const generatedPlan = await migrationService.generateMigrationPlan(formData);
-    if (generatedPlan) {
-      setPlan(generatedPlan);
-      setStep(5);
+    try {
+      setLoading(true);
+      setError(null);
+      const generatedPlan = await migrationService.generateMigrationPlan(formData);
+      if (generatedPlan) {
+        setPlan(generatedPlan);
+        setStep(5);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Failed to generate migration plan.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const steps = [
@@ -96,6 +107,13 @@ export default function MigrationPlanner() {
             ></div>
           </div>
         </div>
+
+        {error && (
+          <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6 flex items-center gap-3">
+            <AlertCircle className="text-red-400 w-6 h-6 flex-shrink-0" />
+            <p className="text-red-200">{error}</p>
+          </div>
+        )}
 
         {/* Step 1: Organization Profile */}
         {step === 1 && (
