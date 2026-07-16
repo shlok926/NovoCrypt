@@ -19,41 +19,37 @@ router.post('/message', requireAuth, async (req, res) => {
     
     const response = await chatbotService.chat(message);
     
-    // Attempt DB persistence
-    try {
-      // Find or create session for user
-      let session = await prisma.chatSession.findFirst({
-        where: { userId: req.user!.userId },
-        orderBy: { createdAt: 'desc' }
+    // DB persistence
+    // Find or create session for user
+    let session = await prisma.chatSession.findFirst({
+      where: { userId: req.user!.userId },
+      orderBy: { createdAt: 'desc' }
+    });
+    if (!session) {
+      session = await prisma.chatSession.create({
+        data: { userId: req.user!.userId }
       });
-      if (!session) {
-        session = await prisma.chatSession.create({
-          data: { userId: req.user!.userId }
-        });
-      }
-      
-      // Save User Message
-      await prisma.chatMessage.create({
-        data: {
-          sessionId: session.id,
-          role: 'user',
-          content: message,
-          tokensUsed: message.length
-        }
-      });
-      
-      // Save Assistant Message
-      await prisma.chatMessage.create({
-        data: {
-          sessionId: session.id,
-          role: 'assistant',
-          content: response,
-          tokensUsed: response.length
-        }
-      });
-    } catch (dbError) {
-      console.warn('Could not save chat message to DB (mock mode):', dbError);
     }
+    
+    // Save User Message
+    await prisma.chatMessage.create({
+      data: {
+        sessionId: session.id,
+        role: 'user',
+        content: message,
+        tokensUsed: message.length
+      }
+    });
+    
+    // Save Assistant Message
+    await prisma.chatMessage.create({
+      data: {
+        sessionId: session.id,
+        role: 'assistant',
+        content: response,
+        tokensUsed: response.length
+      }
+    });
     
     res.json({ 
       success: true, 

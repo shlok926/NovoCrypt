@@ -1,4 +1,4 @@
-// Mock OpenAI implementation (actual OpenAI package not installed)
+import OpenAI from 'openai';
 
 export const chatbotSystemPrompt = `You are QuantumBot, an expert AI assistant for the Novocrypt platform.
 You specialize in quantum computing threats, RSA cryptography, Shor's algorithm, HNDL attacks, Q-Day timeline, 
@@ -10,8 +10,12 @@ export interface ChatMessage {
   content: string;
 }
 
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || 'sk-missing',
+});
+
 /**
- * Send a chat message and get response (mock implementation)
+ * Send a chat message and get response using real OpenAI
  */
 export async function getChatbotResponse(
   messages: ChatMessage[],
@@ -20,57 +24,69 @@ export async function getChatbotResponse(
   response: string;
   tokensUsed: number;
 }> {
-  // Mock response for demo purposes
-  const mockResponses: { [key: string]: string } = {
-    'quantum': 'Quantum computing poses a significant threat to current RSA encryption. Q-Day (when quantum computers become powerful enough) is predicted around 2035. We recommend transitioning to post-quantum algorithms like CRYSTALS-Kyber.',
-    'rsa': 'RSA is vulnerable to quantum attacks via Shor\'s algorithm. Post-quantum alternatives include CRYSTALS-Kyber for key encapsulation and CRYSTALS-Dilithium for signatures.',
-    'migration': 'Start your post-quantum migration by: 1) Auditing current cryptography, 2) Inventory harvest-now-decrypt-later threats, 3) Plan hybrid implementations, 4) Test post-quantum algorithms, 5) Deploy gradually.',
-  };
+  try {
+    const completion = await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+      messages: messages as any,
+      max_tokens: maxTokens,
+      temperature: 0.7,
+    });
 
-  const userMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
-  let response = 'I recommend consulting the Scanner feature to identify cryptographic vulnerabilities in your infrastructure.';
-
-  for (const [key, value] of Object.entries(mockResponses)) {
-    if (userMessage.includes(key)) {
-      response = value;
-      break;
-    }
+    const response = completion.choices[0]?.message?.content || 'I encountered an error generating a response.';
+    return {
+      response,
+      tokensUsed: completion.usage?.total_tokens || 0,
+    };
+  } catch (error: any) {
+    console.error('OpenAI API Error:', error.message);
+    throw new Error('Failed to communicate with AI provider');
   }
-
-  return {
-    response,
-    tokensUsed: Math.ceil(response.split(' ').length * 1.3),
-  };
 }
 
 /**
- * Get AI-powered personalized recommendations based on risk data (mock)
+ * Get AI-powered personalized recommendations based on risk data
  */
 export async function getPersonalizedRecommendations(
   riskData: Record<string, any>
 ): Promise<string[]> {
-  return [
-    'Migrate RSA-2048 to CRYSTALS-Kyber for key encapsulation',
-    'Replace SHA-1 with SHA-256 or SHA-3',
-    'Update TLS configuration to enforce TLS 1.3',
-    'Implement hybrid cryptography during transition period',
-    'Plan cryptographic agility for future algorithm swaps',
-  ];
+  try {
+    const completion = await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: 'You are a cryptography expert. Based on the user risk profile, provide 5 concise, actionable bullet points for mitigation.' },
+        { role: 'user', content: JSON.stringify(riskData) }
+      ],
+      max_tokens: 300,
+      temperature: 0.5,
+    });
+    
+    const response = completion.choices[0]?.message?.content || '';
+    return response.split('\n').filter(r => r.trim().length > 0).map(r => r.replace(/^[-*0-9.]+\s*/, '').trim());
+  } catch (error) {
+    throw new Error('Failed to generate recommendations');
+  }
 }
 
 /**
- * Generate compliance remediation suggestions (mock)
+ * Generate compliance remediation suggestions
  */
 export async function getComplianceRemediations(
   standard: string,
   failedRequirements: string[]
 ): Promise<Record<string, string>> {
-  const remediations: Record<string, string> = {};
-
-  failedRequirements.forEach((req) => {
-    remediations[req] =
-      `For ${standard}: Implement cryptographic agility, migrate to post-quantum algorithms, and establish continuous monitoring for ${req}.`;
-  });
-
-  return remediations;
+  try {
+    const completion = await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: 'You are a compliance expert. Provide a one-sentence remediation step for each failed requirement. Return as JSON where keys are the requirements and values are the remediation steps.' },
+        { role: 'user', content: `Standard: ${standard}\nFailed Requirements: ${JSON.stringify(failedRequirements)}` }
+      ],
+      response_format: { type: 'json_object' }
+    });
+    
+    const result = JSON.parse(completion.choices[0]?.message?.content || '{}');
+    return result;
+  } catch (error) {
+    throw new Error('Failed to generate remediations');
+  }
 }
