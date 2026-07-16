@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { chatbotService } from '../services/chatbot.service';
+import { requireAuth } from '../middleware/auth.middleware';
+import { prisma } from '../config/database';
 
 const router = Router();
 
 // Send message to chatbot
-router.post('/message', async (req, res) => {
+router.post('/message', requireAuth, async (req, res) => {
   try {
     const { message } = req.body;
     
@@ -16,6 +18,42 @@ router.post('/message', async (req, res) => {
     }
     
     const response = await chatbotService.chat(message);
+    
+    // Attempt DB persistence
+    try {
+      // Find or create session for user
+      let session = await prisma.chatSession.findFirst({
+        where: { userId: req.user!.userId },
+        orderBy: { createdAt: 'desc' }
+      });
+      if (!session) {
+        session = await prisma.chatSession.create({
+          data: { userId: req.user!.userId }
+        });
+      }
+      
+      // Save User Message
+      await prisma.chatMessage.create({
+        data: {
+          sessionId: session.id,
+          role: 'user',
+          content: message,
+          tokensUsed: message.length
+        }
+      });
+      
+      // Save Assistant Message
+      await prisma.chatMessage.create({
+        data: {
+          sessionId: session.id,
+          role: 'assistant',
+          content: response,
+          tokensUsed: response.length
+        }
+      });
+    } catch (dbError) {
+      console.warn('Could not save chat message to DB (mock mode):', dbError);
+    }
     
     res.json({ 
       success: true, 
