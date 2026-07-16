@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { complianceService } from '../services/compliance.service';
+import { requireAuth } from '../middleware/auth.middleware';
+import { prisma } from '../config/database';
 
 const router = Router();
 
@@ -27,7 +29,7 @@ router.get('/standards/:standardId', async (req, res) => {
 });
 
 // Check compliance
-router.post('/check', async (req, res) => {
+router.post('/check', requireAuth, async (req, res) => {
   try {
     const { organizationName, currentAlgorithms, targetStandards, industry } = req.body;
     
@@ -45,9 +47,33 @@ router.post('/check', async (req, res) => {
       industry
     });
     
+    // Save to database
+    const savedCheck = await prisma.complianceCheck.create({
+      data: {
+        userId: req.user!.userId,
+        industry: industry || 'other',
+        encryptionData: { algorithms: currentAlgorithms },
+        results: result as any,
+        overallStatus: result.overallCompliance >= 80 ? 'compliant' : result.overallCompliance >= 50 ? 'partial' : 'non-compliant'
+      }
+    });
+    
     res.json({ success: true, data: result });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to check compliance' });
+  }
+});
+
+// Get user's compliance history
+router.get('/history', requireAuth, async (req, res) => {
+  try {
+    const history = await prisma.complianceCheck.findMany({
+      where: { userId: req.user!.userId },
+      orderBy: { checkedAt: 'desc' }
+    });
+    res.json({ success: true, data: history });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to fetch compliance history' });
   }
 });
 
