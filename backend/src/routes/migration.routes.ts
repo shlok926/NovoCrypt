@@ -1,10 +1,12 @@
 import express, { Router } from 'express';
 import { generateMigrationPlan } from '../services/migration.service';
+import { requireAuth } from '../middleware/auth.middleware';
+import { prisma } from '../config/database';
 
 const router = Router();
 
 // POST /api/migration/plan - Generate migration plan
-router.post('/plan', async (req, res) => {
+router.post('/plan', requireAuth, async (req, res) => {
   try {
     const { organizationSize, industry, currentCrypto, budget, timeline } = req.body;
 
@@ -24,6 +26,21 @@ router.post('/plan', async (req, res) => {
       timeline: timeline || 'standard'
     });
 
+    // Save to database
+    const savedPlan = await prisma.migrationPlan.create({
+      data: {
+        userId: req.user!.userId,
+        companyInfo: { organizationSize, industry },
+        currentStack: { algorithms: currentCrypto },
+        dataInventory: {},
+        priorities: { budget: budget || 'medium', timeline: timeline || 'standard' },
+        generatedPlan: plan as any,
+        totalCostMin: plan.estimatedCost.total * 0.9,
+        totalCostMax: plan.estimatedCost.total * 1.1,
+        timelineMonths: parseInt(plan.timeline) || 12,
+      }
+    });
+
     res.json({
       success: true,
       data: plan
@@ -32,6 +49,26 @@ router.post('/plan', async (req, res) => {
     res.status(500).json({
       success: false,
       error: { message: 'Failed to generate migration plan', details: error }
+    });
+  }
+});
+
+// GET /api/migration/plans - Get user's saved migration plans
+router.get('/plans', requireAuth, async (req, res) => {
+  try {
+    const plans = await prisma.migrationPlan.findMany({
+      where: { userId: req.user!.userId },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      data: plans
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: { message: 'Failed to fetch saved plans', details: error }
     });
   }
 });
