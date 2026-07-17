@@ -1,9 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
+import { authRateLimiter } from '../middleware/rateLimit.middleware';
 import * as threatsService from '../services/threats.service';
 import nodemailer from 'nodemailer';
+import { z } from 'zod';
 
 const router = Router();
+
+const emailSchema = z.string().email().max(255).trim().toLowerCase();
 
 // GET /api/threats/feed
 router.get('/feed', async (req: Request, res: Response) => {
@@ -84,13 +88,20 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { email, severityThreshold } = req.body;
-      if (!email || !severityThreshold) {
+      let validEmail: string;
+      try {
+        validEmail = emailSchema.parse(email);
+      } catch (err) {
+        return res.status(400).json({ success: false, message: 'Invalid email format' });
+      }
+
+      if (!severityThreshold) {
         return res.status(400).json({
           success: false,
-          message: 'Email and severity threshold are required',
+          message: 'Severity threshold is required',
         });
       }
-      const { subscription } = await threatsService.subscribeToAlerts(email, severityThreshold);
+      const { subscription } = await threatsService.subscribeToAlerts(validEmail, severityThreshold);
       res.status(201).json({
         success: true,
         message: 'Successfully subscribed to threat alerts',
@@ -114,11 +125,13 @@ const transporter = nodemailer.createTransport({
 });
 
 // POST /api/threats/newsletter
-router.post('/newsletter', async (req: Request, res: Response) => {
+router.post('/newsletter', authRateLimiter, async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ success: false, message: 'Email is required' });
+    let email: string;
+    try {
+      email = emailSchema.parse(req.body.email);
+    } catch (err) {
+      return res.status(400).json({ success: false, message: 'Invalid email address' });
     }
 
     // Save to DB (reusing subscribe logic with default threshold)
