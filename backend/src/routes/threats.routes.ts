@@ -320,13 +320,22 @@ router.get('/unsubscribe', async (req: Request, res: Response) => {
         </head>
         <body>
           <div class="card" id="form-card">
-            <h1>Unsubscribe</h1>
-            <p>We're sorry to see you go. Help us improve by telling us why:</p>
+            <div style="text-align: center; margin-bottom: 20px;">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+              <h1 style="margin-top: 10px;">NovoCrypt</h1>
+            </div>
+            <h2 style="color: #f8fafc; font-size: 20px; margin: 0 0 8px 0; font-weight: 600; text-align: center;">Unsubscribe</h2>
+            <p style="text-align: center;">We're sorry to see you go. Help us improve by telling us why:</p>
             
             <div class="options">
               <label class="option-label"><input type="radio" name="reason" value="too_many" checked> I receive too many emails</label>
               <label class="option-label"><input type="radio" name="reason" value="not_relevant"> Content is not relevant to me</label>
               <label class="option-label"><input type="radio" name="reason" value="didnt_sign_up"> I didn't sign up for this</label>
+              <label class="option-label"><input type="radio" name="reason" value="too_many_others"> I get too many emails in general</label>
+              <label class="option-label"><input type="radio" name="reason" value="rendering_issues"> Emails do not display correctly</label>
+              <label class="option-label"><input type="radio" name="reason" value="other_account"> I prefer to use another account</label>
               <label class="option-label"><input type="radio" name="reason" value="other"> Other</label>
             </div>
             
@@ -345,25 +354,30 @@ router.get('/unsubscribe', async (req: Request, res: Response) => {
               btn.disabled = true;
               btn.innerText = 'Processing...';
 
-              const reason = document.querySelector('input[name="reason"]:checked').value;
-              
               try {
+                const reasonEl = document.querySelector('input[name="reason"]:checked');
+                const reason = reasonEl ? reasonEl.value : 'unknown';
+                
                 const res = await fetch('/api/threats/unsubscribe-confirm', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ email: '${email}', reason: reason })
+                  body: JSON.stringify({ email: "${email}", reason: reason })
                 });
                 
                 if (res.ok) {
                   document.getElementById('form-card').style.display = 'none';
                   document.getElementById('success-msg').style.display = 'block';
                 } else {
-                  alert('Something went wrong. Please try again.');
+                  const errorData = await res.json().catch(() => ({}));
+                  alert('Failed to unsubscribe: ' + (errorData.message || 'Server Error'));
                   btn.disabled = false;
                   btn.innerText = 'Confirm Unsubscribe';
                 }
               } catch (e) {
-                alert('Network error.');
+                console.error(e);
+                alert('Network error. See console for details.');
+                btn.disabled = false;
+                btn.innerText = 'Confirm Unsubscribe';
               }
             }
           </script>
