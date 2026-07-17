@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 
 export const Footer: React.FC = () => {
   const [email, setEmail] = useState('');
+  const [website, setWebsite] = useState(''); // Honeypot trap
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -15,9 +16,10 @@ export const Footer: React.FC = () => {
     try {
       setLoading(true);
       setStatus(null);
-      await api.post('/threats/newsletter', { email });
+      await api.post('/threats/newsletter', { email, website });
       setStatus('Success! Check your email inbox.');
       setEmail('');
+      setWebsite('');
     } catch (err: any) {
       if (err.response?.data?.message) {
         setStatus(err.response.data.message);
@@ -131,6 +133,17 @@ export const Footer: React.FC = () => {
                     placeholder="Enter your email"
                     required
                     className="block w-full pl-10 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                  {/* Honeypot Trap - Invisible to real users, but bots will fill it */}
+                  <input
+                    type="text"
+                    name="website"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                    className="opacity-0 absolute -z-10 w-0 h-0 overflow-hidden"
                   />
                 </div>
                 <button

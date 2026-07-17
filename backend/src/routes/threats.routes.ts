@@ -127,6 +127,13 @@ const transporter = nodemailer.createTransport({
 // POST /api/threats/newsletter
 router.post('/newsletter', authRateLimiter, async (req: Request, res: Response) => {
   try {
+    // Honeypot Trap
+    if (req.body.website) {
+      console.warn(`[BOT DETECTED] Blocked subscription attempt for honeypot field. Email provided: ${req.body.email}`);
+      // Return fake success to trick the bot
+      return res.status(200).json({ success: true, message: 'Subscribed successfully! Welcome email sent.' });
+    }
+
     let email: string;
     try {
       email = emailSchema.parse(req.body.email);
