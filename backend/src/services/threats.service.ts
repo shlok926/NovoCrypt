@@ -341,26 +341,31 @@ export async function subscribeToAlerts(email: string, severityThreshold: string
 
     if (existing) {
       // Update existing subscription
-      return prisma.threatSubscription.update({
+      const subscription = await prisma.threatSubscription.update({
         where: { id: existing.id },
         data: { severityThreshold },
       });
+      return { subscription, isNew: false };
     }
 
     // Create new subscription
-    return prisma.threatSubscription.create({
+    const subscription = await prisma.threatSubscription.create({
       data: {
         email,
         severityThreshold,
       },
     });
+    return { subscription, isNew: true };
   } catch (error) {
     console.warn('Database unavailable, simulating subscription');
     return {
-      id: `sub_${Date.now()}`,
-      email,
-      severityThreshold,
-      createdAt: new Date(),
+      subscription: {
+        id: `sub_${Date.now()}`,
+        email,
+        severityThreshold,
+        createdAt: new Date(),
+      },
+      isNew: true
     };
   }
 }

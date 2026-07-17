@@ -90,7 +90,7 @@ router.post(
           message: 'Email and severity threshold are required',
         });
       }
-      const subscription = await threatsService.subscribeToAlerts(email, severityThreshold);
+      const { subscription } = await threatsService.subscribeToAlerts(email, severityThreshold);
       res.status(201).json({
         success: true,
         message: 'Successfully subscribed to threat alerts',
@@ -122,7 +122,11 @@ router.post('/newsletter', async (req: Request, res: Response) => {
     }
 
     // Save to DB (reusing subscribe logic with default threshold)
-    await threatsService.subscribeToAlerts(email, 'low');
+    const { isNew } = await threatsService.subscribeToAlerts(email, 'low');
+
+    if (!isNew) {
+      return res.status(409).json({ success: false, message: 'You are already subscribed to the newsletter!' });
+    }
 
     // Send instant welcome email to prove it works
     const htmlTemplate = `
