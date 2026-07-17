@@ -371,6 +371,29 @@ export async function subscribeToAlerts(email: string, severityThreshold: string
 }
 
 /**
+ * Unsubscribe user from threat alerts
+ */
+export async function unsubscribeFromAlerts(email: string) {
+  try {
+    const existing = await prisma.threatSubscription.findFirst({
+      where: { email },
+    });
+
+    if (!existing) {
+      return false; // Not found
+    }
+
+    await prisma.threatSubscription.delete({
+      where: { id: existing.id },
+    });
+    return true;
+  } catch (error) {
+    console.warn('Database unavailable, simulating unsubscription');
+    return true;
+  }
+}
+
+/**
  * Get threat statistics
  */
 export async function getThreatStatistics() {

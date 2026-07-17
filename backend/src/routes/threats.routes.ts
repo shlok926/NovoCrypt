@@ -173,7 +173,7 @@ router.post('/newsletter', async (req: Request, res: Response) => {
           </div>
           <div class="footer">
             <p>You received this email because you subscribed on the NovoCrypt platform.</p>
-            <p>NovoCrypt Inc. | 123 Security Blvd, Cyber City | <a href="#">Privacy Policy</a> | <a href="#">Unsubscribe</a></p>
+            <p>NovoCrypt Inc. | 123 Security Blvd, Cyber City | <a href="http://localhost:5173">Privacy Policy</a> | <a href="http://localhost:5000/api/threats/unsubscribe?email=${encodeURIComponent(email)}">Unsubscribe</a></p>
           </div>
         </div>
       </body>
@@ -195,6 +195,45 @@ router.post('/newsletter', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error subscribing to newsletter:', error);
     res.status(500).json({ success: false, message: 'Failed to subscribe' });
+  }
+});
+
+// GET /api/threats/unsubscribe
+router.get('/unsubscribe', async (req: Request, res: Response) => {
+  try {
+    const email = req.query.email as string;
+    if (!email) {
+      return res.status(400).send('Email parameter is required');
+    }
+
+    const success = await threatsService.unsubscribeFromAlerts(email);
+    
+    if (success) {
+      res.send(`
+        <html>
+          <head>
+            <style>
+              body { font-family: sans-serif; text-align: center; padding: 50px; background: #f4f7f6; color: #334155; }
+              .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+              h1 { color: #0f172a; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h1>Unsubscribed Successfully</h1>
+              <p>You will no longer receive alerts at <b>${email}</b>.</p>
+              <br/>
+              <a href="http://localhost:5173" style="color: #7c3aed; text-decoration: none;">Return to NovoCrypt</a>
+            </div>
+          </body>
+        </html>
+      `);
+    } else {
+      res.status(404).send('Subscription not found for this email.');
+    }
+  } catch (error) {
+    console.error('Error unsubscribing:', error);
+    res.status(500).send('Internal server error');
   }
 });
 
