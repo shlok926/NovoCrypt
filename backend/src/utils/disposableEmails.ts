@@ -1,23 +1,10 @@
-export const disposableDomains = new Set([
-  'mailinator.com',
-  'guerrillamail.com',
-  '10minutemail.com',
-  'temp-mail.org',
-  'tempmail.com',
-  'throwawaymail.com',
-  'yopmail.com',
-  'nada.ltd',
-  'getnada.com',
-  'sharklasers.com',
-  'spam4.me',
-  'disposablemail.com',
-  'temp-mail.com',
-  'tempemail.co',
-  'trashmail.com',
-  'maildrop.cc'
-]);
+import disposableDomainsList from 'disposable-email-domains';
+
+const disposableDomains = new Set(disposableDomainsList);
 
 export function isDisposableEmail(email: string): boolean {
+  if (!email || !email.includes('@')) return true;
   const domain = email.split('@')[1].toLowerCase();
   return disposableDomains.has(domain);
 }
+
