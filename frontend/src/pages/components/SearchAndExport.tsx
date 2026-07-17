@@ -20,6 +20,7 @@ export default function SearchAndExport() {
     },
   ]);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [scheduledStatus, setScheduledStatus] = useState<string | null>(null);
 
   const handleExportCSV = async () => {
@@ -37,6 +38,24 @@ export default function SearchAndExport() {
       console.error('Failed to export CSV', err);
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      setIsExportingPdf(true);
+      const response = await api.get('/reports/export-pdf', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'threat_feed_report.pdf');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err) {
+      console.error('Failed to export PDF', err);
+    } finally {
+      setIsExportingPdf(false);
     }
   };
 
@@ -168,11 +187,12 @@ export default function SearchAndExport() {
           </button>
 
           <button 
-            onClick={() => alert('PDF Export is generating in the background. This feature is in beta!')}
+            onClick={handleExportPDF}
+            disabled={isExportingPdf}
             className="p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 rounded-lg transition-colors text-left flex flex-col justify-center"
           >
             <div className="flex items-center gap-2 mb-2">
-              <Download className="w-4 h-4 text-cyan-400" />
+              {isExportingPdf ? <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" /> : <Download className="w-4 h-4 text-cyan-400" />}
               <span className="font-medium text-white">Export PDF</span>
             </div>
             <p className="text-xs text-gray-400">Formatted threat report</p>

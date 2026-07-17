@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
 import { prisma } from '../lib/prisma';
 import nodemailer from 'nodemailer';
+import PDFDocument from 'pdfkit';
 
 export const reportsRouter = Router();
 
@@ -61,6 +62,49 @@ reportsRouter.get('/export-csv', requireAuth, async (req: Request, res: Response
     res.send(csv);
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to export CSV' });
+  }
+});
+
+// Export PDF
+reportsRouter.get('/export-pdf', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const threats = await prisma.threatItem.findMany({
+      orderBy: { publishedAt: 'desc' },
+      take: 50,
+    });
+
+    if (!threats || threats.length === 0) {
+      return res.status(404).json({ success: false, message: 'No threats found' });
+    }
+
+    const doc = new PDFDocument({ margin: 50 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="threat_feed_report.pdf"');
+
+    doc.pipe(res);
+
+    // Title
+    doc.fontSize(24).fillColor('#0ea5e9').text('NovoCrypt Threat Intelligence Report', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(12).fillColor('#64748b').text(`Generated on: ${new Date().toLocaleString()}`, { align: 'center' });
+    doc.moveDown(2);
+
+    // Threats
+    threats.forEach((t, i) => {
+      doc.fontSize(16).fillColor('#334155').text(`${i + 1}. ${t.title}`);
+      doc.fontSize(10).fillColor('#94a3b8').text(`Category: ${t.category.toUpperCase()} | Severity: ${t.severity.toUpperCase()} | Published: ${t.publishedAt.toISOString().split('T')[0]}`);
+      doc.moveDown(0.5);
+      doc.fontSize(12).fillColor('#475569').text(t.summary);
+      doc.moveDown(0.5);
+      doc.fontSize(10).fillColor('#0284c7').text(`Source: ${t.source}`, { link: t.url, underline: true });
+      doc.moveDown(1.5);
+    });
+
+    doc.end();
+  } catch (error) {
+    console.error('Failed to export PDF:', error);
+    res.status(500).json({ success: false, message: 'Failed to export PDF' });
   }
 });
 
