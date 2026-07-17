@@ -20,7 +20,8 @@ export function useWebSocket(userId: string | null) {
     if (!userId) return;
 
     // Create socket connection
-    const socket = io('http://localhost:5000', {
+    const wsUrl = import.meta.env.VITE_WS_URL ?? 'http://localhost:5000';
+    const socket = io(wsUrl, {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,

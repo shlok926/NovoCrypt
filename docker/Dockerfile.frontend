@@ -17,6 +17,7 @@ RUN npm ci
 COPY frontend/src ./src
 COPY frontend/public ./public
 COPY frontend/index.html ./
+COPY frontend/.env.production ./
 
 # Build frontend
 RUN npm run build
