@@ -125,12 +125,63 @@ router.post('/newsletter', async (req: Request, res: Response) => {
     await threatsService.subscribeToAlerts(email, 'low');
 
     // Send instant welcome email to prove it works
+    const htmlTemplate = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; }
+          .container { max-w-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+          .header { background: linear-gradient(135deg, #0f172a 0%, #3b0764 100%); padding: 30px 20px; text-align: center; }
+          .header h1 { color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px; }
+          .content { padding: 40px 30px; color: #334155; line-height: 1.6; }
+          .content h2 { color: #0f172a; font-size: 20px; margin-top: 0; }
+          .cta-button { display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 12px 25px; border-radius: 6px; font-weight: bold; margin: 20px 0; }
+          .footer { background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }
+          .footer a { color: #7c3aed; text-decoration: none; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🛡️ NovoCrypt Security</h1>
+          </div>
+          <div class="content">
+            <h2>Welcome to the Quantum Frontier!</h2>
+            <p>Hello,</p>
+            <p>Thank you for subscribing to the <strong>NovoCrypt Quantum Threats Newsletter</strong>. You are now part of an exclusive group of professionals staying ahead of the post-quantum cryptographic curve.</p>
+            
+            <p><strong>What to expect from us:</strong></p>
+            <ul>
+              <li>Real-time alerts on cryptographic vulnerabilities (Q-Day updates)</li>
+              <li>NIST standardization progress and implementation guides</li>
+              <li>Deep dives into lattice-based and hash-based cryptography</li>
+            </ul>
+
+            <center>
+              <a href="http://localhost:5173/dashboard" class="cta-button">Go to your Dashboard</a>
+            </center>
+
+            <p>If you have any questions, our support team is always ready to assist you. Let's secure the future together.</p>
+            
+            <p>Stay Secure,<br><strong>The NovoCrypt Team</strong></p>
+          </div>
+          <div class="footer">
+            <p>You received this email because you subscribed on the NovoCrypt platform.</p>
+            <p>NovoCrypt Inc. | 123 Security Blvd, Cyber City | <a href="#">Privacy Policy</a> | <a href="#">Unsubscribe</a></p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
     const mailOptions = {
-      from: '"NovoCrypt Newsletter" <news@novocrypt.com>',
+      from: '"NovoCrypt Security" <news@novocrypt.com>',
       to: email,
-      subject: 'Welcome to NovoCrypt Quantum Threats Newsletter!',
-      text: `Hello,\n\nYou have successfully subscribed to the NovoCrypt updates. You'll receive real-time alerts about quantum threats and NIST standards right here.\n\nStay secure,\nNovoCrypt Team`,
-      html: `<b>Hello,</b><br><br>You have successfully subscribed to the NovoCrypt updates. You'll receive real-time alerts about quantum threats and NIST standards right here.<br><br>Stay secure,<br>NovoCrypt Team`
+      subject: 'Welcome to NovoCrypt Quantum Threats Newsletter 🛡️',
+      text: `Hello,\n\nWelcome to the Quantum Frontier! You have successfully subscribed to the NovoCrypt updates.\n\nStay secure,\nNovoCrypt Team`,
+      html: htmlTemplate
     };
 
     const info = await transporter.sendMail(mailOptions);
