@@ -330,58 +330,21 @@ router.get('/unsubscribe', async (req: Request, res: Response) => {
             <h2 style="color: #f8fafc; font-size: 20px; margin: 0 0 8px 0; font-weight: 600; text-align: center;">Unsubscribe</h2>
             <p style="text-align: center;">We're sorry to see you go. Help us improve by telling us why:</p>
             
-            <div class="options">
-              <label class="option-label"><input type="radio" name="reason" value="too_many" checked> I receive too many emails</label>
-              <label class="option-label"><input type="radio" name="reason" value="not_relevant"> Content is not relevant to me</label>
-              <label class="option-label"><input type="radio" name="reason" value="didnt_sign_up"> I didn't sign up for this</label>
-              <label class="option-label"><input type="radio" name="reason" value="too_many_others"> I get too many emails in general</label>
-              <label class="option-label"><input type="radio" name="reason" value="rendering_issues"> Emails do not display correctly</label>
-              <label class="option-label"><input type="radio" name="reason" value="other_account"> I prefer to use another account</label>
-              <label class="option-label"><input type="radio" name="reason" value="other"> Other</label>
-            </div>
-            
-            <button class="btn" id="submit-btn" onclick="submitFeedback()">Confirm Unsubscribe</button>
+            <form action="/api/threats/unsubscribe-confirm" method="POST" id="unsubscribe-form">
+              <input type="hidden" name="email" value="${email}">
+              <div class="options">
+                <label class="option-label"><input type="radio" name="reason" value="too_many" checked> I receive too many emails</label>
+                <label class="option-label"><input type="radio" name="reason" value="not_relevant"> Content is not relevant to me</label>
+                <label class="option-label"><input type="radio" name="reason" value="didnt_sign_up"> I didn't sign up for this</label>
+                <label class="option-label"><input type="radio" name="reason" value="too_many_others"> I get too many emails in general</label>
+                <label class="option-label"><input type="radio" name="reason" value="rendering_issues"> Emails do not display correctly</label>
+                <label class="option-label"><input type="radio" name="reason" value="other_account"> I prefer to use another account</label>
+                <label class="option-label"><input type="radio" name="reason" value="other"> Other</label>
+              </div>
+              
+              <button type="submit" class="btn" id="submit-btn" onclick="this.innerText='Processing...'; this.style.opacity='0.7';">Confirm Unsubscribe</button>
+            </form>
           </div>
-
-          <div class="card" id="success-msg">
-            <h2>✓ Unsubscribed</h2>
-            <p>You have been successfully removed from our mailing list.</p>
-            <a href="http://localhost:5173" style="color: #3b82f6; text-decoration: none; display: inline-block; margin-top: 10px;">Return to Website</a>
-          </div>
-
-          <script>
-            async function submitFeedback() {
-              const btn = document.getElementById('submit-btn');
-              btn.disabled = true;
-              btn.innerText = 'Processing...';
-
-              try {
-                const reasonEl = document.querySelector('input[name="reason"]:checked');
-                const reason = reasonEl ? reasonEl.value : 'unknown';
-                
-                const res = await fetch('/api/threats/unsubscribe-confirm', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ email: "${email}", reason: reason })
-                });
-                
-                if (res.ok) {
-                  document.getElementById('form-card').style.display = 'none';
-                  document.getElementById('success-msg').style.display = 'block';
-                } else {
-                  const errorData = await res.json().catch(() => ({}));
-                  alert('Failed to unsubscribe: ' + (errorData.message || 'Server Error'));
-                  btn.disabled = false;
-                  btn.innerText = 'Confirm Unsubscribe';
-                }
-              } catch (e) {
-                console.error(e);
-                alert('Network error. See console for details.');
-                btn.disabled = false;
-                btn.innerText = 'Confirm Unsubscribe';
-              }
-            }
-          </script>
         </body>
       </html>
     `);
@@ -410,10 +373,32 @@ router.post('/unsubscribe-confirm', async (req: Request, res: Response) => {
     // Actually delete the subscription
     await threatsService.unsubscribeFromAlerts(email);
     
-    res.json({ success: true, message: 'Unsubscribed successfully' });
+    // Render native success page directly (no json)
+    res.send(`
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: 'Inter', -apple-system, sans-serif; background-color: #020617; color: #f8fafc; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; }
+            .card { background: #0f172a; padding: 40px; border-radius: 16px; border: 1px solid #1e293b; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); max-width: 450px; width: 90%; }
+            h2 { color: #22c55e; margin-bottom: 10px; font-size: 24px; }
+            p { color: #94a3b8; font-size: 15px; margin-bottom: 24px; }
+            .btn { display: inline-block; padding: 12px 24px; background: #3b82f6; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; transition: 0.2s; }
+            .btn:hover { background: #2563eb; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h2>✓ Unsubscribed</h2>
+            <p>You have been successfully removed from our mailing list. Your feedback has been recorded.</p>
+            <a href="http://localhost:5173" class="btn">Return to Website</a>
+          </div>
+        </body>
+      </html>
+    `);
   } catch (error) {
     console.error('Error unsubscribing:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).send('Internal server error');
   }
 });
 
