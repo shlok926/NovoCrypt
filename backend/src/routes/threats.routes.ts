@@ -5,6 +5,7 @@ import * as threatsService from '../services/threats.service';
 import nodemailer from 'nodemailer';
 import { z } from 'zod';
 import dns from 'dns';
+import { isDisposableEmail } from '../utils/disposableEmails';
 
 const router = Router();
 
@@ -140,6 +141,12 @@ router.post('/newsletter', authRateLimiter, async (req: Request, res: Response) 
       email = emailSchema.parse(req.body.email);
     } catch (err) {
       return res.status(400).json({ success: false, message: 'Invalid email address' });
+    }
+
+    // Block temporary/disposable emails
+    if (isDisposableEmail(email)) {
+      console.warn(`[TEMP EMAIL BLOCKED] Blocked subscription for disposable email: ${email}`);
+      return res.status(400).json({ success: false, message: 'Temporary or disposable email addresses are not allowed.' });
     }
 
     // Advanced: DNS MX Record Validation
