@@ -6,6 +6,7 @@ import nodemailer from 'nodemailer';
 import { z } from 'zod';
 import dns from 'dns';
 import { isDisposableEmail } from '../utils/disposableEmails';
+import { prisma } from '../config/database';
 
 const router = Router();
 
@@ -398,6 +399,14 @@ router.post('/unsubscribe-confirm', async (req: Request, res: Response) => {
 
     console.log(`[FEEDBACK] User unsubscribed. Reason: ${reason}, Email: ${email}`);
     
+    // Save feedback to the database
+    await prisma.unsubscribeFeedback.create({
+      data: {
+        email: email,
+        reason: reason || 'unknown'
+      }
+    });
+
     // Actually delete the subscription
     await threatsService.unsubscribeFromAlerts(email);
     

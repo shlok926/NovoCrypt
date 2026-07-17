@@ -83,6 +83,15 @@ model ThreatSubscription {
   @@map("threat_subscriptions")
 }
 
+model UnsubscribeFeedback {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @db.VarChar(255)
+  reason    String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("unsubscribe_feedbacks")
+}
+
 // FEATURE 2: CRYPTOGRAPHY SCANNER
 model ScanResult {
   id          String   @id @default(uuid()) @db.Uuid
