@@ -1,8 +1,29 @@
-import React from 'react';
-import { Shield, ChevronRight, Mail } from 'lucide-react';
+import React, { useState } from 'react';
+import { Shield, ChevronRight, Mail, Loader2, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { api } from '@/lib/api';
 
 export const Footer: React.FC = () => {
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+
+    try {
+      setLoading(true);
+      setStatus(null);
+      await api.post('/threats/newsletter', { email });
+      setStatus('Success! Check your email inbox.');
+      setEmail('');
+    } catch (err) {
+      setStatus('Failed to subscribe. Try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <footer className="bg-slate-950 border-t border-slate-800 pt-16 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -94,19 +115,29 @@ export const Footer: React.FC = () => {
             <p className="text-slate-400 text-sm mb-4">
               Get the latest updates on quantum threats and NIST standards.
             </p>
-            <form className="relative">
+            <form onSubmit={handleSubscribe} className="relative">
               <input 
                 type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email" 
+                disabled={loading}
                 className="w-full bg-slate-900 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
               />
               <Mail className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
               <button 
                 type="submit" 
-                className="mt-3 w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2.5 text-sm font-medium transition-colors"
+                disabled={loading}
+                className="mt-3 w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2.5 text-sm font-medium transition-colors flex justify-center items-center gap-2"
               >
-                Subscribe
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Subscribe'}
               </button>
+              {status && (
+                <p className={`mt-2 text-xs flex items-center gap-1 ${status.includes('Success') ? 'text-green-400' : 'text-red-400'}`}>
+                  {status.includes('Success') && <CheckCircle className="w-3 h-3" />}
+                  {status}
+                </p>
+              )}
             </form>
           </div>
         </div>

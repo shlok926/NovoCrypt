@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
 import * as threatsService from '../services/threats.service';
+import nodemailer from 'nodemailer';
 
 const router = Router();
 
@@ -101,6 +102,46 @@ router.post(
     }
   }
 );
+
+// Configure Nodemailer for the public newsletter
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  auth: {
+    user: process.env.SMTP_USER || 'ethereal.user@ethereal.email',
+    pass: process.env.SMTP_PASS || 'etherealpassword',
+  },
+});
+
+// POST /api/threats/newsletter
+router.post('/newsletter', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    // Save to DB (reusing subscribe logic with default threshold)
+    await threatsService.subscribeToAlerts(email, 'low');
+
+    // Send instant welcome email to prove it works
+    const mailOptions = {
+      from: '"NovoCrypt Newsletter" <news@novocrypt.com>',
+      to: email,
+      subject: 'Welcome to NovoCrypt Quantum Threats Newsletter!',
+      text: `Hello,\n\nYou have successfully subscribed to the NovoCrypt updates. You'll receive real-time alerts about quantum threats and NIST standards right here.\n\nStay secure,\nNovoCrypt Team`,
+      html: `<b>Hello,</b><br><br>You have successfully subscribed to the NovoCrypt updates. You'll receive real-time alerts about quantum threats and NIST standards right here.<br><br>Stay secure,<br>NovoCrypt Team`
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Newsletter welcome email sent: %s", info.messageId);
+
+    res.json({ success: true, message: 'Subscribed successfully! Welcome email sent.' });
+  } catch (error) {
+    console.error('Error subscribing to newsletter:', error);
+    res.status(500).json({ success: false, message: 'Failed to subscribe' });
+  }
+});
 
 // POST /api/threats/seed
 router.post('/seed', async (req: Request, res: Response) => {
