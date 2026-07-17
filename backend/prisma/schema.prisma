@@ -76,6 +76,8 @@ model ThreatSubscription {
   id                  String   @id @default(uuid()) @db.Uuid
   email               String   @db.VarChar(255)
   severityThreshold   String   @map("severity_threshold") @db.VarChar(50)
+  verified            Boolean  @default(false)
+  verificationToken   String?  @map("verification_token") @db.VarChar(255)
   createdAt           DateTime @default(now()) @map("created_at")
 
   @@map("threat_subscriptions")

@@ -142,13 +142,15 @@ router.post('/newsletter', authRateLimiter, async (req: Request, res: Response) 
     }
 
     // Save to DB (reusing subscribe logic with default threshold)
-    const { isNew } = await threatsService.subscribeToAlerts(email, 'low');
+    const { isNew, verificationToken } = await threatsService.subscribeToAlerts(email, 'low');
 
     if (!isNew) {
       return res.status(409).json({ success: false, message: 'You are already subscribed to the newsletter!' });
     }
 
-    // Send instant welcome email to prove it works
+    const verifyUrl = `http://localhost:5000/api/threats/verify?token=${verificationToken}`;
+
+    // Send verification email
     const htmlTemplate = `
       <!DOCTYPE html>
       <html>
@@ -172,22 +174,15 @@ router.post('/newsletter', authRateLimiter, async (req: Request, res: Response) 
             <h1>🛡️ NovoCrypt Security</h1>
           </div>
           <div class="content">
-            <h2>Welcome to the Quantum Frontier!</h2>
+            <h2>Action Required: Verify Your Email</h2>
             <p>Hello,</p>
-            <p>Thank you for subscribing to the <strong>NovoCrypt Quantum Threats Newsletter</strong>. You are now part of an exclusive group of professionals staying ahead of the post-quantum cryptographic curve.</p>
+            <p>Thank you for subscribing to the <strong>NovoCrypt Quantum Threats Newsletter</strong>. To ensure you receive our real-time alerts and research on post-quantum cryptography, please verify your email address.</p>
             
-            <p><strong>What to expect from us:</strong></p>
-            <ul>
-              <li>Real-time alerts on cryptographic vulnerabilities (Q-Day updates)</li>
-              <li>NIST standardization progress and implementation guides</li>
-              <li>Deep dives into lattice-based and hash-based cryptography</li>
-            </ul>
-
             <center>
-              <a href="http://localhost:5173/dashboard" class="cta-button">Go to your Dashboard</a>
+              <a href="${verifyUrl}" class="cta-button">Verify Subscription</a>
             </center>
 
-            <p>If you have any questions, our support team is always ready to assist you. Let's secure the future together.</p>
+            <p>If you did not request this subscription, you can safely ignore this email.</p>
             
             <p>Stay Secure,<br><strong>The NovoCrypt Team</strong></p>
           </div>
@@ -203,18 +198,57 @@ router.post('/newsletter', authRateLimiter, async (req: Request, res: Response) 
     const mailOptions = {
       from: '"NovoCrypt Security" <news@novocrypt.com>',
       to: email,
-      subject: 'Welcome to NovoCrypt Quantum Threats Newsletter 🛡️',
-      text: `Hello,\n\nWelcome to the Quantum Frontier! You have successfully subscribed to the NovoCrypt updates.\n\nStay secure,\nNovoCrypt Team`,
+      subject: 'Verify your NovoCrypt Subscription 🛡️',
+      text: `Hello,\n\nPlease verify your email to subscribe to the NovoCrypt updates.\n\nStay secure,\nNovoCrypt Team`,
       html: htmlTemplate
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log("Newsletter welcome email sent: %s", info.messageId);
+    console.log("Verification email sent: %s", info.messageId);
 
-    res.json({ success: true, message: 'Subscribed successfully! Welcome email sent.' });
+    res.json({ success: true, message: 'Verification email sent! Check your inbox to confirm.' });
   } catch (error) {
     console.error('Error subscribing to newsletter:', error);
     res.status(500).json({ success: false, message: 'Failed to subscribe' });
+  }
+});
+
+// GET /api/threats/verify
+router.get('/verify', async (req: Request, res: Response) => {
+  try {
+    const token = req.query.token as string;
+    if (!token) {
+      return res.status(400).send('Verification token is required');
+    }
+
+    const success = await threatsService.verifySubscription(token);
+    
+    if (success) {
+      res.send(`
+        <html>
+          <head>
+            <style>
+              body { font-family: sans-serif; text-align: center; padding: 50px; background: #f4f7f6; color: #334155; }
+              .card { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 450px; margin: 0 auto; }
+              h1 { color: #16a34a; }
+              .cta { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #7c3aed; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h1>✅ Email Verified!</h1>
+              <p>Your subscription is now active. You will receive real-time alerts and newsletters from NovoCrypt.</p>
+              <a href="http://localhost:5173" class="cta">Go to Dashboard</a>
+            </div>
+          </body>
+        </html>
+      `);
+    } else {
+      res.status(400).send('Invalid or expired verification token.');
+    }
+  } catch (error) {
+    console.error('Error verifying email:', error);
+    res.status(500).send('Internal server error');
   }
 });
 

@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
 import Parser from 'rss-parser';
+import crypto from 'crypto';
 
 const parser = new Parser();
 
@@ -349,13 +350,16 @@ export async function subscribeToAlerts(email: string, severityThreshold: string
     }
 
     // Create new subscription
+    const verificationToken = crypto.randomBytes(32).toString('hex');
     const subscription = await prisma.threatSubscription.create({
       data: {
         email,
         severityThreshold,
+        verified: false,
+        verificationToken,
       },
     });
-    return { subscription, isNew: true };
+    return { subscription, isNew: true, verificationToken };
   } catch (error) {
     console.warn('Database unavailable, simulating subscription');
     return {
@@ -363,10 +367,41 @@ export async function subscribeToAlerts(email: string, severityThreshold: string
         id: `sub_${Date.now()}`,
         email,
         severityThreshold,
+        verified: false,
+        verificationToken: 'dummy-token',
         createdAt: new Date(),
       },
-      isNew: true
+      isNew: true,
+      verificationToken: 'dummy-token'
     };
+  }
+}
+
+/**
+ * Verify a subscription token
+ */
+export async function verifySubscription(token: string) {
+  try {
+    const subscription = await prisma.threatSubscription.findFirst({
+      where: { verificationToken: token },
+    });
+
+    if (!subscription) {
+      return false;
+    }
+
+    await prisma.threatSubscription.update({
+      where: { id: subscription.id },
+      data: {
+        verified: true,
+        verificationToken: null,
+      },
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error verifying subscription:', error);
+    return false;
   }
 }
 
