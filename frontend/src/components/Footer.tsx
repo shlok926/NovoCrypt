@@ -18,8 +18,12 @@ export const Footer: React.FC = () => {
       await api.post('/threats/newsletter', { email });
       setStatus('Success! Check your email inbox.');
       setEmail('');
-    } catch (err) {
-      setStatus('Failed to subscribe. Try again.');
+    } catch (err: any) {
+      if (err.response?.data?.message) {
+        setStatus(err.response.data.message);
+      } else {
+        setStatus('Failed to subscribe. Try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -115,30 +119,38 @@ export const Footer: React.FC = () => {
             <p className="text-slate-400 text-sm mb-4">
               Get the latest updates on quantum threats and NIST standards.
             </p>
-            <form onSubmit={handleSubscribe} className="relative">
-              <input 
-                type="email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email" 
-                disabled={loading}
-                className="w-full bg-slate-900 border border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-              />
-              <Mail className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="mt-3 w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2.5 text-sm font-medium transition-colors flex justify-center items-center gap-2"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Subscribe'}
-              </button>
-              {status && (
-                <p className={`mt-2 text-xs flex items-center gap-1 ${status.includes('Success') ? 'text-green-400' : 'text-red-400'}`}>
-                  {status.includes('Success') && <CheckCircle className="w-3 h-3" />}
-                  {status}
-                </p>
-              )}
-            </form>
+              <form onSubmit={handleSubscribe} className="space-y-3">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-4 w-4 text-slate-500" />
+                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    required
+                    className="block w-full pl-10 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Subscribing...</>
+                  ) : (
+                    'Subscribe'
+                  )}
+                </button>
+                {status && (
+                  <p className={`text-xs flex items-center gap-1 ${status.includes('Success') ? 'text-green-400' : status.toLowerCase().includes('already') ? 'text-yellow-400' : 'text-red-400'}`}>
+                    {status.includes('Success') && <CheckCircle className="w-3 h-3" />}
+                    {status}
+                  </p>
+                )}
+              </form>
           </div>
         </div>
 
