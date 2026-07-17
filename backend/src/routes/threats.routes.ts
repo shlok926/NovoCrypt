@@ -293,34 +293,100 @@ router.get('/unsubscribe', async (req: Request, res: Response) => {
       return res.status(400).send('Email parameter is required');
     }
 
-    const success = await threatsService.unsubscribeFromAlerts(email);
-    
-    if (success) {
-      res.send(`
-        <html>
-          <head>
-            <style>
-              body { font-family: sans-serif; text-align: center; padding: 50px; background: #f4f7f6; color: #334155; }
-              .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
-              h1 { color: #0f172a; }
-            </style>
-          </head>
-          <body>
-            <div class="card">
-              <h1>Unsubscribed Successfully</h1>
-              <p>You will no longer receive alerts at <b>${email}</b>.</p>
-              <br/>
-              <a href="http://localhost:5173" style="color: #7c3aed; text-decoration: none;">Return to NovoCrypt</a>
+    // Render feedback form (do NOT unsubscribe yet)
+    res.send(`
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: 'Inter', -apple-system, sans-serif; background-color: #020617; color: #f8fafc; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+            .card { background: #0f172a; padding: 40px; border-radius: 16px; border: 1px solid #1e293b; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); max-width: 450px; width: 90%; text-align: left; }
+            h1 { color: #f8fafc; font-size: 24px; margin: 0 0 8px 0; font-weight: 600; }
+            p { color: #94a3b8; font-size: 15px; margin: 0 0 24px 0; }
+            .options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+            .option-label { display: flex; align-items: center; gap: 10px; cursor: pointer; color: #cbd5e1; font-size: 15px; padding: 12px; border: 1px solid #334155; border-radius: 8px; transition: all 0.2s; }
+            .option-label:hover { background: rgba(255,255,255,0.05); }
+            input[type="radio"] { accent-color: #3b82f6; width: 18px; height: 18px; }
+            .btn { width: 100%; padding: 14px; background: #ef4444; color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s; }
+            .btn:hover { background: #dc2626; }
+            .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+            #success-msg { display: none; text-align: center; }
+            #success-msg h2 { color: #22c55e; margin-bottom: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="card" id="form-card">
+            <h1>Unsubscribe</h1>
+            <p>We're sorry to see you go. Help us improve by telling us why:</p>
+            
+            <div class="options">
+              <label class="option-label"><input type="radio" name="reason" value="too_many" checked> I receive too many emails</label>
+              <label class="option-label"><input type="radio" name="reason" value="not_relevant"> Content is not relevant to me</label>
+              <label class="option-label"><input type="radio" name="reason" value="didnt_sign_up"> I didn't sign up for this</label>
+              <label class="option-label"><input type="radio" name="reason" value="other"> Other</label>
             </div>
-          </body>
-        </html>
-      `);
-    } else {
-      res.status(404).send('Subscription not found for this email.');
-    }
+            
+            <button class="btn" id="submit-btn" onclick="submitFeedback()">Confirm Unsubscribe</button>
+          </div>
+
+          <div class="card" id="success-msg">
+            <h2>✓ Unsubscribed</h2>
+            <p>You have been successfully removed from our mailing list.</p>
+            <a href="http://localhost:5173" style="color: #3b82f6; text-decoration: none; display: inline-block; margin-top: 10px;">Return to Website</a>
+          </div>
+
+          <script>
+            async function submitFeedback() {
+              const btn = document.getElementById('submit-btn');
+              btn.disabled = true;
+              btn.innerText = 'Processing...';
+
+              const reason = document.querySelector('input[name="reason"]:checked').value;
+              
+              try {
+                const res = await fetch('/api/threats/unsubscribe-confirm', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: '${email}', reason: reason })
+                });
+                
+                if (res.ok) {
+                  document.getElementById('form-card').style.display = 'none';
+                  document.getElementById('success-msg').style.display = 'block';
+                } else {
+                  alert('Something went wrong. Please try again.');
+                  btn.disabled = false;
+                  btn.innerText = 'Confirm Unsubscribe';
+                }
+              } catch (e) {
+                alert('Network error.');
+              }
+            }
+          </script>
+        </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('Error generating unsubscribe page:', error);
+    res.status(500).send('Internal server error');
+  }
+});
+
+// POST /api/threats/unsubscribe-confirm
+router.post('/unsubscribe-confirm', async (req: Request, res: Response) => {
+  try {
+    const { email, reason } = req.body;
+    if (!email) return res.status(400).json({ success: false, message: 'Email required' });
+
+    console.log(`[FEEDBACK] User unsubscribed. Reason: ${reason}, Email: ${email}`);
+    
+    // Actually delete the subscription
+    await threatsService.unsubscribeFromAlerts(email);
+    
+    res.json({ success: true, message: 'Unsubscribed successfully' });
   } catch (error) {
     console.error('Error unsubscribing:', error);
-    res.status(500).send('Internal server error');
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 
