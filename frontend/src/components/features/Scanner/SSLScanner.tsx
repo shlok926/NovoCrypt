@@ -35,15 +35,15 @@ export const SSLScanner: React.FC = () => {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical':
-        return 'bg-red-100 text-red-800 border-red-300';
+        return 'bg-red-900/50 text-red-200 border-red-500/50';
       case 'high':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
+        return 'bg-orange-900/50 text-orange-200 border-orange-500/50';
       case 'medium':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        return 'bg-yellow-900/50 text-yellow-200 border-yellow-500/50';
       case 'low':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-blue-900/50 text-blue-200 border-blue-500/50';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+        return 'bg-slate-800 text-slate-300 border-slate-700';
     }
   };
 
@@ -62,13 +62,13 @@ export const SSLScanner: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-xl font-semibold mb-4 text-gray-900">
+        <h3 className="text-xl font-semibold mb-4 text-white">
           🔐 SSL/TLS Certificate Scanner
         </h3>
 
         <form onSubmit={handleScan} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Domain Name
             </label>
             <div className="flex gap-2">
@@ -77,7 +77,7 @@ export const SSLScanner: React.FC = () => {
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
                 placeholder="e.g., google.com, example.org"
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500"
                 disabled={loading}
               />
               <button
@@ -99,7 +99,7 @@ export const SSLScanner: React.FC = () => {
         </form>
 
         {error && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start gap-2">
+          <div className="mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg text-red-400 text-sm flex items-start gap-2">
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -108,24 +108,24 @@ export const SSLScanner: React.FC = () => {
 
       {result && (
         <div className="space-y-4">
-          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+          <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h4 className="font-semibold text-gray-900">Scan Results</h4>
-                <p className="text-sm text-gray-600">{domain}</p>
+                <h4 className="font-semibold text-white">Scan Results</h4>
+                <p className="text-sm text-gray-400">{domain}</p>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-2xl font-bold text-blue-400">
                   {result.riskScore}%
                 </div>
-                <p className="text-xs text-gray-600">Risk Score</p>
+                <p className="text-xs text-gray-400">Risk Score</p>
               </div>
             </div>
           </div>
 
           {result.vulnerabilities && result.vulnerabilities.length > 0 ? (
             <div className="space-y-3">
-              <h4 className="font-semibold text-gray-900">
+              <h4 className="font-semibold text-white">
                 Vulnerabilities Found: {result.vulnerabilities.length}
               </h4>
               {(result.vulnerabilities as SSLVulnerability[]).map(
@@ -140,8 +140,8 @@ export const SSLScanner: React.FC = () => {
                       {getSeverityIcon(vuln.severity)}
                       <div className="flex-1">
                         <div className="flex justify-between items-start">
-                          <h5 className="font-semibold">{vuln.type}</h5>
-                          <span className="text-xs px-2 py-1 bg-white bg-opacity-50 rounded font-medium">
+                          <h5 className="font-semibold text-white">{vuln.type}</h5>
+                          <span className="text-xs px-2 py-1 bg-slate-800 rounded font-medium text-slate-300">
                             {vuln.severity.toUpperCase()}
                           </span>
                         </div>
@@ -164,8 +164,8 @@ export const SSLScanner: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-2 text-green-800">
+            <div className="p-4 bg-emerald-900/20 border border-emerald-500/30 rounded-lg">
+              <div className="flex items-center gap-2 text-emerald-400">
                 <CheckCircle2 className="w-5 h-5" />
                 <span>No vulnerabilities detected. Certificate looks secure!</span>
               </div>
@@ -173,13 +173,13 @@ export const SSLScanner: React.FC = () => {
           )}
 
           {result.recommendations && result.recommendations.length > 0 && (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h5 className="font-semibold text-gray-900 mb-2">
+            <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+              <h5 className="font-semibold text-white mb-2">
                 📋 Recommendations
               </h5>
               <ul className="space-y-1">
                 {result.recommendations.map((rec, idx) => (
-                  <li key={idx} className="text-sm text-gray-700 flex gap-2">
+                  <li key={idx} className="text-sm text-gray-300 flex gap-2">
                     <span>✓</span>
                     <span>{rec}</span>
                   </li>

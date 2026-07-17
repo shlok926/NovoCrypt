@@ -37,7 +37,7 @@ export const RecommendationPanel: React.FC = () => {
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+      <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
         {error}
       </div>
     );
@@ -45,7 +45,7 @@ export const RecommendationPanel: React.FC = () => {
 
   if (!recommendations || !recommendations.vulnerable || !recommendations.safe) {
     return (
-      <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+      <div className="p-4 bg-amber-900/20 border border-amber-500/30 rounded-lg text-amber-400 text-sm">
         Unable to load recommendations. Please try refreshing the page.
       </div>
     );
@@ -53,31 +53,31 @@ export const RecommendationPanel: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <h3 className="text-xl font-semibold text-gray-900">
+      <h3 className="text-xl font-semibold text-white">
         🔄 Quantum-Safe Algorithm Migration
       </h3>
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Vulnerable Algorithms */}
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-lg">
           <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
-            <h4 className="font-semibold text-red-900">Vulnerable Algorithms</h4>
+            <AlertTriangle className="w-5 h-5 text-red-400" />
+            <h4 className="font-semibold text-red-200">Vulnerable Algorithms</h4>
           </div>
           <div className="space-y-3">
             {recommendations.vulnerable.map((algo, idx) => (
               <div
                 key={idx}
-                className="p-3 bg-white border border-red-100 rounded text-sm"
+                className="p-3 bg-slate-800 border border-slate-700 rounded text-sm"
               >
-                <div className="font-semibold text-gray-900">{algo.algorithm}</div>
-                <p className="text-gray-600 text-xs mt-1">{algo.reason}</p>
+                <div className="font-semibold text-white">{algo.algorithm}</div>
+                <p className="text-gray-400 text-xs mt-1">{algo.reason}</p>
                 <div className="mt-2">
                   <span
                     className={`text-xs px-2 py-1 rounded font-medium ${
                       algo.severity === 'critical'
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-orange-100 text-orange-800'
+                        ? 'bg-red-900/50 text-red-200'
+                        : 'bg-orange-900/50 text-orange-200'
                     }`}
                   >
                     {algo.severity.toUpperCase()}
@@ -89,10 +89,10 @@ export const RecommendationPanel: React.FC = () => {
         </div>
 
         {/* Safe Algorithms */}
-        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+        <div className="p-4 bg-emerald-900/20 border border-emerald-500/30 rounded-lg">
           <div className="flex items-center gap-2 mb-4">
-            <Shield className="w-5 h-5 text-green-600" />
-            <h4 className="font-semibold text-green-900">
+            <Shield className="w-5 h-5 text-emerald-400" />
+            <h4 className="font-semibold text-emerald-200">
               Recommended Quantum-Safe Alternatives
             </h4>
           </div>
@@ -100,19 +100,19 @@ export const RecommendationPanel: React.FC = () => {
             {recommendations.safe.map((algo, idx) => (
               <div
                 key={idx}
-                className="p-3 bg-white border border-green-100 rounded text-sm"
+                className="p-3 bg-slate-800 border border-slate-700 rounded text-sm"
               >
-                <div className="font-semibold text-gray-900 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600" />
+                <div className="font-semibold text-white flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                   {algo.algorithm}
                 </div>
-                <p className="text-gray-600 text-xs mt-1">{algo.description}</p>
+                <p className="text-gray-400 text-xs mt-1">{algo.description}</p>
                 {algo.migrationSteps && algo.migrationSteps.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-green-100">
-                    <p className="text-xs font-medium text-gray-700 mb-1">
+                  <div className="mt-2 pt-2 border-t border-slate-700">
+                    <p className="text-xs font-medium text-gray-300 mb-1">
                       Migration Steps:
                     </p>
-                    <ol className="text-xs text-gray-600 space-y-1 ml-4">
+                    <ol className="text-xs text-gray-400 space-y-1 ml-4">
                       {algo.migrationSteps.map((step, stepIdx) => (
                         <li key={stepIdx} className="list-decimal">
                           {step}
@@ -128,15 +128,15 @@ export const RecommendationPanel: React.FC = () => {
       </div>
 
       {/* Timeline */}
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <h4 className="font-semibold text-blue-900 mb-2">⏱️ Migration Timeline</h4>
-        <p className="text-blue-800 text-sm">{recommendations.timeline}</p>
+      <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+        <h4 className="font-semibold text-blue-300 mb-2">⏱️ Migration Timeline</h4>
+        <p className="text-blue-200 text-sm">{recommendations.timeline}</p>
       </div>
 
       {/* Action Items */}
-      <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-        <h4 className="font-semibold text-amber-900 mb-3">📋 Action Items</h4>
-        <ul className="space-y-2 text-sm text-amber-900">
+      <div className="p-4 bg-amber-900/20 border border-amber-500/30 rounded-lg">
+        <h4 className="font-semibold text-amber-400 mb-3">📋 Action Items</h4>
+        <ul className="space-y-2 text-sm text-amber-200">
           <li className="flex gap-2">
             <span>1.</span>
             <span>Audit your codebase for deprecated cryptographic algorithms</span>
