@@ -4,6 +4,7 @@ import { authRateLimiter } from '../middleware/rateLimit.middleware';
 import * as threatsService from '../services/threats.service';
 import nodemailer from 'nodemailer';
 import { z } from 'zod';
+import dns from 'dns';
 
 const router = Router();
 
@@ -139,6 +140,17 @@ router.post('/newsletter', authRateLimiter, async (req: Request, res: Response) 
       email = emailSchema.parse(req.body.email);
     } catch (err) {
       return res.status(400).json({ success: false, message: 'Invalid email address' });
+    }
+
+    // Advanced: DNS MX Record Validation
+    try {
+      const domain = email.split('@')[1];
+      const mxRecords = await dns.promises.resolveMx(domain);
+      if (!mxRecords || mxRecords.length === 0) {
+        throw new Error('No MX records');
+      }
+    } catch (dnsError) {
+      return res.status(400).json({ success: false, message: 'Invalid email domain (Server not found)' });
     }
 
     // Save to DB (reusing subscribe logic with default threshold)
