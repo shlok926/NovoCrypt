@@ -156,8 +156,12 @@ router.post('/newsletter', authRateLimiter, async (req: Request, res: Response) 
       if (!mxRecords || mxRecords.length === 0) {
         throw new Error('No MX records');
       }
-    } catch (dnsError) {
-      return res.status(400).json({ success: false, message: 'Invalid email domain (Server not found)' });
+    } catch (dnsError: any) {
+      if (dnsError.code === 'ENOTFOUND' || dnsError.code === 'ENODATA') {
+        return res.status(400).json({ success: false, message: 'Invalid email domain (Server not found)' });
+      }
+      // If it's a network issue like ECONNREFUSED, let it pass to avoid blocking valid emails
+      console.warn(`[DNS WARN] Could not verify MX for ${email}:`, dnsError.message);
     }
 
     // Save to DB (reusing subscribe logic with default threshold)
