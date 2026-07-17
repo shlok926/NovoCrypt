@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../config/database';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
 

@@ -106,7 +106,7 @@ export const Navbar: React.FC = () => {
               <div className="absolute left-0 mt-0 w-48 bg-slate-900 border border-slate-800 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 py-2">
                 {productMenu.items.map((item) => (
                   <Link
-                    key={item.href}
+                    key={item.label}
                     to={item.href}
                     className={`block px-4 py-2 text-sm transition-colors ${
                       isActive(item.href)
@@ -128,7 +128,7 @@ export const Navbar: React.FC = () => {
               <div className="absolute left-0 mt-0 w-48 bg-slate-900 border border-slate-800 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 py-2">
                 {learnMenu.items.map((item) => (
                   <Link
-                    key={item.href}
+                    key={item.label}
                     to={item.href}
                     className={`block px-4 py-2 text-sm transition-colors ${
                       isActive(item.href)
@@ -150,7 +150,7 @@ export const Navbar: React.FC = () => {
               <div className="absolute left-0 mt-0 w-48 bg-slate-900 border border-slate-800 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 py-2">
                 {toolsMenu.items.map((item) => (
                   <Link
-                    key={item.href}
+                    key={item.label}
                     to={item.href}
                     className={`block px-4 py-2 text-sm transition-colors ${
                       isActive(item.href)
@@ -271,7 +271,7 @@ export const Navbar: React.FC = () => {
                   <div className="bg-slate-800/50 rounded-lg mt-1 space-y-1">
                     {learnMenu.items.map((item) => (
                       <Link
-                        key={item.href}
+                        key={item.label}
                         to={item.href}
                         className={`block px-6 py-2 text-sm transition-colors ${
                           isActive(item.href)
