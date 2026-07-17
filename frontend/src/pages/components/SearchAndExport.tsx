@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Search, Download, Save } from 'lucide-react';
+import { Search, Download, Save, Loader2, CheckCircle } from 'lucide-react';
 import { Card } from '@/components/ui';
+import { api } from '@/lib/api';
 
 export default function SearchAndExport() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -18,6 +19,39 @@ export default function SearchAndExport() {
       severity: 'high',
     },
   ]);
+  const [isExporting, setIsExporting] = useState(false);
+  const [scheduledStatus, setScheduledStatus] = useState<string | null>(null);
+
+  const handleExportCSV = async () => {
+    try {
+      setIsExporting(true);
+      const response = await api.get('/reports/export-csv', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'threat_feed_export.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err) {
+      console.error('Failed to export CSV', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleScheduleReport = async (type: string, isChecked: boolean) => {
+    if (!isChecked) return;
+    try {
+      setScheduledStatus(`Scheduling ${type}...`);
+      await api.post('/reports/schedule', { type });
+      setScheduledStatus(`${type} scheduled successfully. A confirmation email has been sent!`);
+      setTimeout(() => setScheduledStatus(null), 5000);
+    } catch (err) {
+      setScheduledStatus(`Failed to schedule ${type}.`);
+      setTimeout(() => setScheduledStatus(null), 5000);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -118,9 +152,13 @@ export default function SearchAndExport() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <button className="p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 rounded-lg transition-colors text-left">
+          <button 
+            onClick={handleExportCSV}
+            disabled={isExporting}
+            className="p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 rounded-lg transition-colors text-left flex flex-col justify-center"
+          >
             <div className="flex items-center gap-2 mb-2">
-              <Download className="w-4 h-4 text-cyan-400" />
+              {isExporting ? <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" /> : <Download className="w-4 h-4 text-cyan-400" />}
               <span className="font-medium text-white">Export CSV</span>
             </div>
             <p className="text-xs text-gray-400">Current threat feed as spreadsheet</p>
@@ -161,19 +199,37 @@ export default function SearchAndExport() {
 
       {/* Scheduled Reports */}
       <Card className="border-slate-700/50 p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Scheduled Reports</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-white">Scheduled Reports</h3>
+          {scheduledStatus && (
+            <span className="text-sm text-cyan-400 flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              {scheduledStatus}
+            </span>
+          )}
+        </div>
         <div className="space-y-3">
           <div className="p-4 bg-slate-800/50 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <span className="font-medium text-white">Weekly Threat Summary</span>
-              <input type="checkbox" defaultChecked className="w-4 h-4 rounded" />
+              <input 
+                type="checkbox" 
+                defaultChecked 
+                className="w-4 h-4 rounded" 
+                onChange={(e) => handleScheduleReport('Weekly Threat Summary', e.target.checked)}
+              />
             </div>
             <p className="text-xs text-gray-400">Every Monday at 9:00 AM</p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <span className="font-medium text-white">Monthly Compliance Report</span>
-              <input type="checkbox" defaultChecked className="w-4 h-4 rounded" />
+              <input 
+                type="checkbox" 
+                defaultChecked 
+                className="w-4 h-4 rounded" 
+                onChange={(e) => handleScheduleReport('Monthly Compliance Report', e.target.checked)}
+              />
             </div>
             <p className="text-xs text-gray-400">First day of month at 8:00 AM</p>
           </div>
