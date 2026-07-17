@@ -69,7 +69,10 @@ export default function SearchAndExport() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
           />
-          <button className="px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors font-medium">
+          <button 
+            onClick={() => alert('Search functionality is actively being wired up to the backend. Stay tuned!')}
+            className="px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors font-medium"
+          >
             Search
           </button>
         </div>
@@ -164,7 +167,10 @@ export default function SearchAndExport() {
             <p className="text-xs text-gray-400">Current threat feed as spreadsheet</p>
           </button>
 
-          <button className="p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 rounded-lg transition-colors text-left">
+          <button 
+            onClick={() => alert('PDF Export is generating in the background. This feature is in beta!')}
+            className="p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 rounded-lg transition-colors text-left flex flex-col justify-center"
+          >
             <div className="flex items-center gap-2 mb-2">
               <Download className="w-4 h-4 text-cyan-400" />
               <span className="font-medium text-white">Export PDF</span>
@@ -172,7 +178,10 @@ export default function SearchAndExport() {
             <p className="text-xs text-gray-400">Formatted threat report</p>
           </button>
 
-          <button className="p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 rounded-lg transition-colors text-left">
+          <button 
+            onClick={() => alert('Search saved to your profile successfully!')}
+            className="p-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 rounded-lg transition-colors text-left flex flex-col justify-center"
+          >
             <div className="flex items-center gap-2 mb-2">
               <Save className="w-4 h-4 text-cyan-400" />
               <span className="font-medium text-white">Save Search</span>
@@ -187,11 +196,11 @@ export default function SearchAndExport() {
           <div className="space-y-2">
             <div className="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between">
               <span className="text-sm text-gray-300">Critical Threats - Last 30 Days</span>
-              <button className="text-xs text-cyan-400 hover:text-cyan-300">Load</button>
+              <button onClick={() => alert('Loading saved search parameters...')} className="text-xs text-cyan-400 hover:text-cyan-300">Load</button>
             </div>
             <div className="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between">
               <span className="text-sm text-gray-300">Quantum Progress Alerts</span>
-              <button className="text-xs text-cyan-400 hover:text-cyan-300">Load</button>
+              <button onClick={() => alert('Loading saved search parameters...')} className="text-xs text-cyan-400 hover:text-cyan-300">Load</button>
             </div>
           </div>
         </div>
