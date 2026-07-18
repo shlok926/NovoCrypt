@@ -1,6 +1,9 @@
 import { prisma } from '../config/database';
 import * as fs from 'fs';
 import * as path from 'path';
+import { sendEmailReport } from './email.service';
+import { generateWeeklyPDFBuffer } from './pdf/weekly-report';
+import { generateMonthlyPDFBuffer } from './pdf/monthly-report';
 
 export const reportService = {
   generatePdfReport: async (assessmentId: string, userId: string) => {
@@ -289,6 +292,122 @@ For more information, visit novocrypt.com
       return { success: true };
     } catch (error) {
       throw new Error(`Failed to delete report: ${error}`);
+    }
+  },
+
+  /**
+   * Orchestrator for sending scheduled reports.
+   * Designed to be moved to a BullMQ worker easily in the future.
+   */
+  processWeeklyReports: async () => {
+    try {
+      // 1. Fetch Users who want weekly reports
+      const preferences = await prisma.userPreference.findMany({
+        where: { weeklySummary: true },
+        include: { user: true },
+      });
+
+      if (preferences.length === 0) {
+        console.log('[REPORTING] No users subscribed to weekly reports.');
+        return;
+      }
+
+      // 2. Fetch threats for the last 7 days
+      const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const threats = await prisma.threatItem.findMany({
+        where: { publishedAt: { gte: lastWeek } },
+        orderBy: { publishedAt: 'desc' },
+      });
+
+      // 3. Generate PDF Buffer once in memory
+      const pdfBuffer = await generateWeeklyPDFBuffer(threats);
+
+      // 4. Dispatch to each user
+      let sentCount = 0;
+      for (const pref of preferences) {
+        const email = pref.user.email;
+        const success = await sendEmailReport({
+          to: email,
+          subject: 'Your Weekly Quantum Threat Summary',
+          text: `Here is your weekly summary of quantum cryptography threats. We detected ${threats.length} threats.`,
+          html: `<p>Hello ${pref.user.name || 'User'},</p><p>Please find attached your Weekly Quantum Threat Summary.</p><p>Stay secure,<br/>NovoCrypt Team</p>`,
+          attachments: [
+            {
+              filename: `Weekly-Threat-Report-${new Date().toISOString().split('T')[0]}.pdf`,
+              content: pdfBuffer,
+              contentType: 'application/pdf',
+            },
+          ],
+        });
+
+        // 5. Audit Log
+        await prisma.reportAudit.create({
+          data: {
+            userId: pref.user.id,
+            reportType: 'weekly_summary',
+            status: success ? 'sent' : 'failed',
+            errorLog: success ? null : 'Nodemailer rejection',
+          },
+        });
+
+        if (success) sentCount++;
+      }
+
+      console.log(`[REPORTING] Dispatched Weekly Reports to ${sentCount}/${preferences.length} users.`);
+    } catch (error) {
+      console.error('[REPORTING] Failed to process weekly reports:', error);
+    }
+  },
+
+  processMonthlyReports: async () => {
+    try {
+      const preferences = await prisma.userPreference.findMany({
+        where: { monthlyCompliance: true },
+        include: { user: true },
+      });
+
+      if (preferences.length === 0) return;
+
+      const lastMonth = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const threats = await prisma.threatItem.findMany({
+        where: { publishedAt: { gte: lastMonth }, category: 'advisory' }, // Focus on compliance/advisories
+        orderBy: { publishedAt: 'desc' },
+      });
+
+      const pdfBuffer = await generateMonthlyPDFBuffer(threats);
+
+      let sentCount = 0;
+      for (const pref of preferences) {
+        const email = pref.user.email;
+        const success = await sendEmailReport({
+          to: email,
+          subject: 'Monthly Compliance & Quantum Readiness Report',
+          text: 'Please find attached your Monthly Compliance Report.',
+          html: `<p>Hello ${pref.user.name || 'User'},</p><p>Please find attached your Monthly Compliance Report.</p><p>Stay secure,<br/>NovoCrypt Team</p>`,
+          attachments: [
+            {
+              filename: `Monthly-Compliance-Report-${new Date().toISOString().split('T')[0]}.pdf`,
+              content: pdfBuffer,
+              contentType: 'application/pdf',
+            },
+          ],
+        });
+
+        await prisma.reportAudit.create({
+          data: {
+            userId: pref.user.id,
+            reportType: 'monthly_compliance',
+            status: success ? 'sent' : 'failed',
+            errorLog: success ? null : 'Nodemailer rejection',
+          },
+        });
+
+        if (success) sentCount++;
+      }
+
+      console.log(`[REPORTING] Dispatched Monthly Reports to ${sentCount}/${preferences.length} users.`);
+    } catch (error) {
+      console.error('[REPORTING] Failed to process monthly reports:', error);
     }
   },
 };

@@ -272,6 +272,8 @@ model User {
   communityThreads CommunityThread[] @relation("ThreadAuthor")
   communityReplies CommunityReply[]  @relation("ReplyAuthor")
   threadUpvotes   ThreadUpvote[]   @relation("UserUpvotes")
+  preference      UserPreference?  @relation("UserPreference")
+  reportAudits    ReportAudit[]    @relation("ReportAudits")
 
   @@map("users")
 }
@@ -319,4 +321,28 @@ model ThreadUpvote {
 
   @@unique([threadId, userId])
   @@map("thread_upvotes")
+}
+
+// FEATURE 10: AUTOMATED REPORTS
+model UserPreference {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @map("user_id") @db.Uuid
+  weeklySummary     Boolean  @default(false) @map("weekly_summary")
+  monthlyCompliance Boolean  @default(false) @map("monthly_compliance")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  user              User     @relation("UserPreference", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model ReportAudit {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  reportType  String   @map("report_type") @db.VarChar(50) // 'weekly_summary' | 'monthly_compliance'
+  status      String   @db.VarChar(20) // 'sent' | 'failed'
+  errorLog    String?  @map("error_log") @db.Text
+  sentAt      DateTime @default(now()) @map("sent_at")
+  user        User     @relation("ReportAudits", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("report_audits")
 }

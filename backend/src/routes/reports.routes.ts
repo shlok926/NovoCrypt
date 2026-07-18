@@ -6,6 +6,55 @@ import PDFDocument from 'pdfkit';
 
 export const reportsRouter = Router();
 
+// Get User Report Preferences
+reportsRouter.get('/preferences', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    let pref = await prisma.userPreference.findUnique({
+      where: { userId },
+    });
+
+    if (!pref) {
+      pref = await prisma.userPreference.create({
+        data: { userId },
+      });
+    }
+
+    res.json({ success: true, data: pref });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch preferences' });
+  }
+});
+
+// Update User Report Preferences
+reportsRouter.put('/preferences', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const { weeklySummary, monthlyCompliance } = req.body;
+
+    const pref = await prisma.userPreference.upsert({
+      where: { userId },
+      update: {
+        weeklySummary: weeklySummary !== undefined ? weeklySummary : undefined,
+        monthlyCompliance: monthlyCompliance !== undefined ? monthlyCompliance : undefined,
+      },
+      create: {
+        userId,
+        weeklySummary: weeklySummary || false,
+        monthlyCompliance: monthlyCompliance || false,
+      },
+    });
+
+    res.json({ success: true, data: pref });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to update preferences' });
+  }
+});
+
 // Generate report
 reportsRouter.post('/generate', requireAuth, async (req: Request, res: Response) => {
   try {

@@ -18,6 +18,7 @@ Successfully implemented the Threat Intelligence Feed API architecture including
 - `backend/src/config/websocket.ts` (Added `broadcastThreatAlert` function).
 - `backend/src/config/env.ts` (Added Zod validation for `CRON_THREAT_FETCH`).
 - `frontend/src/hooks/useWebSocket.ts` (Added `threat_alert` event listener).
+- `frontend/src/pages/Dashboard.tsx` (Integrated 'Live Threat Radar' widget and real-time sliding 'Emergency Banner').
 
 **Recent Architectural Changes:**
 - Introduced `node-cron` for autonomous scheduled tasks (Threat Ingestion).
@@ -28,7 +29,7 @@ Successfully implemented the Threat Intelligence Feed API architecture including
 **Pending TODO / Remaining Work:**
 - Apply Turnstile Site Key on the React Frontend Login/Register forms.
 - Integrate the Admin Analytics Dashboard for visualizing `UnsubscribeFeedback` (Future Scope).
-- Build the Frontend UI for the Threat Intelligence Dashboard to consume `/api/threats/feed` and display `threat_alert` WebSocket events.
+- Expand `/threat-feed` full-page with advanced filtering capabilities (Currently standard implementation).
 
 **Deployment Status:**
 - Local Development environment.
