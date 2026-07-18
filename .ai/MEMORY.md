@@ -22,6 +22,15 @@
 3. **Enterprise Unsubscribe Flow:**
    - CSP-compliant native HTML feedback form rendered from the backend.
    - Records unsubscribe reasons ("too many emails", "not relevant") directly to `UnsubscribeFeedback` Prisma model.
+4. **Automated Threat Intelligence Reporting Engine:**
+   - PDFKit in-memory generation of Weekly Threat Summaries and Monthly Compliance Reports.
+   - Nodemailer automated dispatches based on `UserPreference` subscriptions.
+   - **Production Hardened Execution:**
+     - `withRedisLock`: Distributed cron locking using ownership tokens to prevent duplicate overlaps across clustered pods.
+     - `take/skip` Cursor Pagination: Bounded O(1) memory footprint during massive user list iterations.
+     - Deterministic Idempotency: `@@unique([userId, reportType, reportPeriod])` composite constraints to eliminate cron jitter bypasses.
+     - Exponential Backoff Retries: Built-in `withRetry` for transient SMTP faults.
+     - Deterministic Priority Sorting: Pre-mapped severity weights to ensure PDF capacity constraints only slice the highest priority vulnerabilities.
 
 **Important Design Decisions:**
 - **CSP Compliance via Native Forms:** Initially, the unsubscribe form used `fetch()` with inline JavaScript. This was blocked by `helmet`'s strict Content-Security-Policy. *Decision:* Rewrote the flow to use native `<form method="POST">` to submit data, bypassing CSP restrictions while maintaining enterprise security.
