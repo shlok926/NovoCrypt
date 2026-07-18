@@ -15,6 +15,7 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+  CRON_THREAT_FETCH: z.string().default('0 */6 * * *'),
 });
 
 const parsed = envSchema.safeParse(process.env);

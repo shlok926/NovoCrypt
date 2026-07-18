@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
 import Parser from 'rss-parser';
 import crypto from 'crypto';
+import { redis } from '../config/redis';
 
 const parser = new Parser();
 
@@ -139,6 +140,13 @@ export async function getThreatFeed(
   try {
     const skip = (page - 1) * limit;
 
+    const cacheKey = `threats:feed:${page}:${limit}:${category || 'all'}:${severity || 'all'}`;
+    const cached = await redis.get(cacheKey);
+
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
     const where: any = {};
     if (category) where.category = category;
     if (severity) where.severity = severity;
@@ -153,13 +161,18 @@ export async function getThreatFeed(
       prisma.threatItem.count({ where }),
     ]);
 
-    return {
+    const result = {
       items,
       total,
       page,
       limit,
       pages: Math.ceil(total / limit),
     };
+
+    // Cache for 5 minutes (300 seconds)
+    await redis.setex(cacheKey, 300, JSON.stringify(result));
+
+    return result;
   } catch (error) {
     console.warn('Database unavailable, using mock threat data');
     

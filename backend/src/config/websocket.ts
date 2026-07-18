@@ -5,7 +5,7 @@ import { env } from './env';
 let io: SocketIOServer;
 
 export interface RealTimeEvent {
-  type: 'leaderboard_update' | 'thread_created' | 'score_updated' | 'achievement_unlocked';
+  type: 'leaderboard_update' | 'thread_created' | 'score_updated' | 'achievement_unlocked' | 'threat_alert';
   data: any;
   userId?: string;
   timestamp: number;
@@ -159,4 +159,15 @@ export function broadcastTrendingUpdate(trendingTopics: any) {
     timestamp: Date.now(),
   });
   console.log('📡 Broadcasted trending topics update');
+}
+
+export function broadcastThreatAlert(threatData: any) {
+  if (io) {
+    const event: RealTimeEvent = {
+      type: 'threat_alert',
+      data: threatData,
+      timestamp: Date.now(),
+    };
+    io.emit('threat:alert', event);
+  }
 }

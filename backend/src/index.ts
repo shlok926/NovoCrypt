@@ -4,6 +4,7 @@ import { prisma } from './config/database';
 import { env } from './config/env';
 import { redis } from './config/redis';
 import { initializeWebSocket } from './config/websocket';
+import { initializeCronJobs } from './jobs/cron';
 
 const start = async (): Promise<void> => {
   try {
@@ -34,6 +35,9 @@ const start = async (): Promise<void> => {
     initializeWebSocket(server);
     // eslint-disable-next-line no-console
     console.log('✓ WebSocket initialized');
+
+    // Initialize Cron Jobs
+    initializeCronJobs();
 
     server.listen(env.PORT, () => {
       // eslint-disable-next-line no-console

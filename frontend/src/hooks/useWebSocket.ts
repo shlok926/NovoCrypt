@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import io, { Socket } from 'socket.io-client';
 
 export interface RealTimeEvent {
-  type: 'leaderboard_update' | 'thread_created' | 'score_updated' | 'achievement_unlocked' | 'trending_updated' | 'thread_reply';
+  type: 'leaderboard_update' | 'thread_created' | 'score_updated' | 'achievement_unlocked' | 'trending_updated' | 'thread_reply' | 'threat_alert';
   data: any;
   userId?: string;
   threadId?: string;
@@ -83,6 +83,13 @@ export function useWebSocket(userId: string | null) {
       console.log('🔥 Trending topics updated:', event.data);
       setEvents((prev) => [...prev, event]);
       triggerHandlers('trending_updated', event);
+    });
+
+    // Threat Alerts
+    socket.on('threat:alert', (event: RealTimeEvent) => {
+      console.log('🚨 New Threat Alert:', event.data);
+      setEvents((prev) => [...prev, event]);
+      triggerHandlers('threat_alert', event);
     });
 
     // Disconnect
