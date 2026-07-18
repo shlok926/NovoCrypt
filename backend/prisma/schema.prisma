@@ -336,13 +336,16 @@ model UserPreference {
 }
 
 model ReportAudit {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String   @map("user_id") @db.Uuid
-  reportType  String   @map("report_type") @db.VarChar(50) // 'weekly_summary' | 'monthly_compliance'
-  status      String   @db.VarChar(20) // 'sent' | 'failed'
-  errorLog    String?  @map("error_log") @db.Text
-  sentAt      DateTime @default(now()) @map("sent_at")
-  user        User     @relation("ReportAudits", fields: [userId], references: [id], onDelete: Cascade)
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  reportType   String   @map("report_type") @db.VarChar(50) // 'weekly_summary' | 'monthly_compliance'
+  reportPeriod String   @map("report_period") @db.VarChar(20) // e.g. '2026-W30' or '2026-07'
+  status       String   @db.VarChar(20) // 'sent' | 'failed'
+  errorLog     String?  @map("error_log") @db.Text
+  sentAt       DateTime @default(now()) @map("sent_at")
+  user         User     @relation("ReportAudits", fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, reportType, reportPeriod])
+  @@index([userId, reportType, reportPeriod])
   @@map("report_audits")
 }

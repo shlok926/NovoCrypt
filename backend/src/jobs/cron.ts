@@ -6,12 +6,16 @@ import { broadcastThreatAlert } from '../config/websocket';
 import { reportService } from '../services/report.service';
 import { redis } from '../config/redis';
 
+import crypto from 'crypto';
+
 /**
  * Distributed lock to prevent duplicate cron executions across multiple instances.
  */
 async function withRedisLock(lockKey: string, lockDurationSeconds: number, callback: () => Promise<void>) {
+  const token = crypto.randomBytes(16).toString('hex');
+  let acquired = false;
   try {
-    const acquired = await redis.set(lockKey, 'LOCKED', 'EX', lockDurationSeconds, 'NX');
+    acquired = (await redis.set(lockKey, token, 'EX', lockDurationSeconds, 'NX')) === 'OK';
     if (!acquired) {
       console.log(`[CRON] Lock ${lockKey} is already acquired by another instance. Skipping execution.`);
       return;
@@ -21,6 +25,22 @@ async function withRedisLock(lockKey: string, lockDurationSeconds: number, callb
     // If Redis is down, we might proceed or fail gracefully depending on criticality. 
     // For reports, we prefer skipping to avoid duplicate spam if we can't guarantee a lock.
     console.error(`[CRON] Failed to acquire lock for ${lockKey} due to Redis error. Skipping execution.`, error);
+  } finally {
+    if (acquired) {
+      try {
+        // Lua script to ensure we only delete the lock if we own it
+        const script = `
+          if redis.call("get", KEYS[1]) == ARGV[1] then
+            return redis.call("del", KEYS[1])
+          else
+            return 0
+          end
+        `;
+        await redis.eval(script, 1, lockKey, token);
+      } catch (cleanupError) {
+        console.error(`[CRON] Failed to release lock ${lockKey}`, cleanupError);
+      }
+    }
   }
 }
 

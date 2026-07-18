@@ -5,6 +5,32 @@ import { sendEmailReport } from './email.service';
 import { generateWeeklyPDFBuffer } from './pdf/weekly-report';
 import { generateMonthlyPDFBuffer } from './pdf/monthly-report';
 
+// Priority map for deterministic severity sorting
+const SEVERITY_WEIGHT: Record<string, number> = {
+  critical: 4,
+  high: 3,
+  medium: 2,
+  low: 1
+};
+
+/**
+ * Get ISO week string, e.g., "2026-W30"
+ */
+function getISOWeekString(date: Date): string {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1)/7);
+  return `${d.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Get month string, e.g., "2026-07"
+ */
+function getMonthString(date: Date): string {
+  return `${date.getUTCFullYear()}-${(date.getUTCMonth() + 1).toString().padStart(2, '0')}`;
+}
 /**
  * Helper to retry a promise-returning function with exponential backoff.
  * Future migration to BullMQ will replace this with built-in queue retries.
@@ -323,13 +349,22 @@ For more information, visit novocrypt.com
     const correlationId = `JOB-WEEKLY-${Date.now()}`;
     console.log(`[REPORTING][${correlationId}] Initiating weekly reports...`);
     try {
-      // Fetch threats for the last 7 days with a strict limit
+      // Fetch threats for the last 7 days
       const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      const threats = await prisma.threatItem.findMany({
+      let threats = await prisma.threatItem.findMany({
         where: { publishedAt: { gte: lastWeek } },
-        orderBy: { severity: 'asc' }, // Will sort somewhat arbitrarily unless enum ranked, but good enough for now
-        take: 100, // Priority 5: Limit report size
+        orderBy: { publishedAt: 'desc' },
       });
+
+      // Priority 5: Deterministic severity sorting
+      threats.sort((a, b) => {
+        const weightA = SEVERITY_WEIGHT[a.severity.toLowerCase()] || 0;
+        const weightB = SEVERITY_WEIGHT[b.severity.toLowerCase()] || 0;
+        return weightB - weightA;
+      });
+      threats = threats.slice(0, 100); // Limit report size
+
+      const reportPeriod = getISOWeekString(new Date());
 
       // Priority 3: Pagination
       const batchSize = parseInt(process.env.REPORT_BATCH_SIZE || '100');
@@ -360,17 +395,19 @@ For more information, visit novocrypt.com
           
           // Priority 2: Isolated try-catch
           try {
-            // Priority 7: Idempotency Check (Check if already sent this week)
-            const alreadySent = await prisma.reportAudit.findFirst({
+            // Priority 7: Idempotency Check (Check if already sent for this period)
+            // @ts-ignore
+            const alreadySent = await prisma.reportAudit.findUnique({
               where: {
-                userId,
-                reportType: 'weekly_summary',
-                status: 'sent',
-                sentAt: { gte: lastWeek },
+                userId_reportType_reportPeriod: {
+                  userId,
+                  reportType: 'weekly_summary',
+                  reportPeriod,
+                },
               },
             });
 
-            if (alreadySent) {
+            if (alreadySent && alreadySent.status === 'sent') {
               console.log(`[REPORTING][${correlationId}] Skipped User ${userId} - Already sent this week.`);
               continue;
             }
@@ -401,10 +438,23 @@ For more information, visit novocrypt.com
               }));
             }
 
-            await prisma.reportAudit.create({
-              data: {
+            await prisma.reportAudit.upsert({
+              where: {
+                userId_reportType_reportPeriod: {
+                  userId,
+                  reportType: 'weekly_summary',
+                  reportPeriod,
+                },
+              },
+              update: {
+                status: success ? 'sent' : 'failed',
+                errorLog: success ? null : 'Nodemailer rejection',
+                sentAt: new Date(),
+              },
+              create: {
                 userId,
                 reportType: 'weekly_summary',
+                reportPeriod,
                 status: success ? 'sent' : 'failed',
                 errorLog: success ? null : 'Nodemailer rejection',
               },
@@ -420,10 +470,23 @@ For more information, visit novocrypt.com
             console.error(`[REPORTING][${correlationId}] Unhandled error for user ${userId}:`, userError);
             // Log failure but continue processing remaining users
             try {
-               await prisma.reportAudit.create({
-                data: {
+               await prisma.reportAudit.upsert({
+                where: {
+                  userId_reportType_reportPeriod: {
+                    userId,
+                    reportType: 'weekly_summary',
+                    reportPeriod,
+                  },
+                },
+                update: {
+                  status: 'failed',
+                  errorLog: String(userError),
+                  sentAt: new Date(),
+                },
+                create: {
                   userId,
                   reportType: 'weekly_summary',
+                  reportPeriod,
                   status: 'failed',
                   errorLog: String(userError),
                 },
@@ -446,11 +509,20 @@ For more information, visit novocrypt.com
     console.log(`[REPORTING][${correlationId}] Initiating monthly reports...`);
     try {
       const lastMonth = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const threats = await prisma.threatItem.findMany({
+      let threats = await prisma.threatItem.findMany({
         where: { publishedAt: { gte: lastMonth }, category: 'advisory' },
         orderBy: { publishedAt: 'desc' },
-        take: 100, // Priority 5
       });
+
+      // Priority 5
+      threats.sort((a, b) => {
+        const weightA = SEVERITY_WEIGHT[a.severity.toLowerCase()] || 0;
+        const weightB = SEVERITY_WEIGHT[b.severity.toLowerCase()] || 0;
+        return weightB - weightA;
+      });
+      threats = threats.slice(0, 100);
+
+      const reportPeriod = getMonthString(new Date());
 
       const batchSize = parseInt(process.env.REPORT_BATCH_SIZE || '100');
       let cursor: string | undefined = undefined;
@@ -479,16 +551,17 @@ For more information, visit novocrypt.com
           const userId = pref.user.id;
           
           try {
-            const alreadySent = await prisma.reportAudit.findFirst({
+            const alreadySent = await prisma.reportAudit.findUnique({
               where: {
-                userId,
-                reportType: 'monthly_compliance',
-                status: 'sent',
-                sentAt: { gte: lastMonth },
+                userId_reportType_reportPeriod: {
+                  userId,
+                  reportType: 'monthly_compliance',
+                  reportPeriod,
+                },
               },
             });
 
-            if (alreadySent) {
+            if (alreadySent && alreadySent.status === 'sent') {
                console.log(`[REPORTING][${correlationId}] Skipped User ${userId} - Already sent this month.`);
                continue;
             }
@@ -518,10 +591,23 @@ For more information, visit novocrypt.com
               }));
             }
 
-            await prisma.reportAudit.create({
-              data: {
+            await prisma.reportAudit.upsert({
+              where: {
+                userId_reportType_reportPeriod: {
+                  userId,
+                  reportType: 'monthly_compliance',
+                  reportPeriod,
+                },
+              },
+              update: {
+                status: success ? 'sent' : 'failed',
+                errorLog: success ? null : 'Nodemailer rejection',
+                sentAt: new Date(),
+              },
+              create: {
                 userId,
                 reportType: 'monthly_compliance',
+                reportPeriod,
                 status: success ? 'sent' : 'failed',
                 errorLog: success ? null : 'Nodemailer rejection',
               },
@@ -536,10 +622,23 @@ For more information, visit novocrypt.com
           } catch (userError) {
             console.error(`[REPORTING][${correlationId}] Unhandled error for user ${userId}:`, userError);
             try {
-               await prisma.reportAudit.create({
-                data: {
+               await prisma.reportAudit.upsert({
+                where: {
+                  userId_reportType_reportPeriod: {
+                    userId,
+                    reportType: 'monthly_compliance',
+                    reportPeriod,
+                  },
+                },
+                update: {
+                  status: 'failed',
+                  errorLog: String(userError),
+                  sentAt: new Date(),
+                },
+                create: {
                   userId,
                   reportType: 'monthly_compliance',
+                  reportPeriod,
                   status: 'failed',
                   errorLog: String(userError),
                 },
