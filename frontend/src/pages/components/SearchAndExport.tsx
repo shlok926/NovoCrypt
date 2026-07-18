@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Search, Download, Save, Loader2, CheckCircle } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { api } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 
 export default function SearchAndExport() {
+  const { addToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults] = useState([
     {
@@ -27,15 +29,33 @@ export default function SearchAndExport() {
     try {
       setIsExporting(true);
       const response = await api.get('/reports/export-csv', { responseType: 'blob' });
+      
+      let filename = `novocrypt-threat-feed-${new Date().toISOString().split('T')[0]}.csv`;
+      const contentDisposition = response.headers['content-disposition'];
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match && match.length === 2) filename = match[1];
+      }
+
       const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', 'threat_feed_export.csv');
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
-    } catch (err) {
+      
+      addToast('CSV exported successfully', 'success');
+    } catch (err: any) {
       console.error('Failed to export CSV', err);
+      if (err.response) {
+        if (err.response.status === 401) addToast('Please log in to export reports.', 'warning');
+        else if (err.response.status === 403) addToast('You do not have permission to export.', 'error');
+        else if (err.response.status === 404) addToast('No threats available to export.', 'info');
+        else addToast('Failed to export CSV due to a server error.', 'error');
+      } else {
+        addToast('Network error while exporting CSV.', 'error');
+      }
     } finally {
       setIsExporting(false);
     }
@@ -45,15 +65,33 @@ export default function SearchAndExport() {
     try {
       setIsExportingPdf(true);
       const response = await api.get('/reports/export-pdf', { responseType: 'blob' });
+      
+      let filename = `novocrypt-threat-feed-${new Date().toISOString().split('T')[0]}.pdf`;
+      const contentDisposition = response.headers['content-disposition'];
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match && match.length === 2) filename = match[1];
+      }
+
       const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', 'threat_feed_report.pdf');
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
-    } catch (err) {
+      
+      addToast('PDF exported successfully', 'success');
+    } catch (err: any) {
       console.error('Failed to export PDF', err);
+      if (err.response) {
+        if (err.response.status === 401) addToast('Please log in to export reports.', 'warning');
+        else if (err.response.status === 403) addToast('You do not have permission to export.', 'error');
+        else if (err.response.status === 404) addToast('No threats available to export.', 'info');
+        else addToast('Failed to export PDF due to a server error.', 'error');
+      } else {
+        addToast('Network error while exporting PDF.', 'error');
+      }
     } finally {
       setIsExportingPdf(false);
     }

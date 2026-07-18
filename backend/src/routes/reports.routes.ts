@@ -105,20 +105,30 @@ reportsRouter.get('/export-csv', requireAuth, async (req: Request, res: Response
       return res.status(404).json({ success: false, message: 'No threats found' });
     }
 
-    const headers = ['ID', 'Title', 'Category', 'Severity', 'Source', 'PublishedAt'];
+    const headers = ['Threat ID', 'Title', 'Severity', 'Category', 'Summary', 'Source', 'Reference URL', 'Published Date'];
+    
+    const escapeCSV = (str: string) => {
+      if (!str) return '""';
+      const escaped = str.replace(/"/g, '""');
+      return `"${escaped}"`;
+    };
+
     const rows = threats.map(t => [
       t.id,
-      `"${t.title.replace(/"/g, '""')}"`,
-      t.category,
+      escapeCSV(t.title),
       t.severity,
-      `"${t.source.replace(/"/g, '""')}"`,
+      t.category,
+      escapeCSV(t.summary),
+      escapeCSV(t.source),
+      escapeCSV(t.url),
       t.publishedAt.toISOString()
     ]);
 
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const dateStr = new Date().toISOString().split('T')[0];
 
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="threat_feed_export.csv"');
+    res.setHeader('Content-Disposition', `attachment; filename="novocrypt-threat-feed-${dateStr}.csv"`);
     res.send(csv);
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to export CSV' });
@@ -130,36 +140,84 @@ reportsRouter.get('/export-pdf', requireAuth, async (req: Request, res: Response
   try {
     const threats = await prisma.threatItem.findMany({
       orderBy: { publishedAt: 'desc' },
-      take: 50,
+      take: 100,
     });
 
     if (!threats || threats.length === 0) {
       return res.status(404).json({ success: false, message: 'No threats found' });
     }
 
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const dateStr = new Date().toISOString().split('T')[0];
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="threat_feed_report.pdf"');
+    res.setHeader('Content-Disposition', `attachment; filename="novocrypt-threat-feed-${dateStr}.pdf"`);
 
     doc.pipe(res);
 
-    // Title
-    doc.fontSize(24).fillColor('#0ea5e9').text('NovoCrypt Threat Intelligence Report', { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(12).fillColor('#64748b').text(`Generated on: ${new Date().toLocaleString()}`, { align: 'center' });
-    doc.moveDown(2);
+    // --- Cover Section ---
+    doc.moveDown(4);
+    doc.fontSize(28).fillColor('#0ea5e9').text('NovoCrypt Threat Intelligence Report', { align: 'center' });
+    doc.moveDown(1);
+    doc.fontSize(14).fillColor('#64748b').text(`Generated Date: ${new Date().toLocaleString()}`, { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(14).fillColor('#64748b').text(`Total Threat Count: ${threats.length}`, { align: 'center' });
+    doc.moveDown(6);
 
-    // Threats
+    // --- Threat Summary ---
+    const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+    threats.forEach(t => {
+      if (counts[t.severity as keyof typeof counts] !== undefined) {
+        counts[t.severity as keyof typeof counts]++;
+      }
+    });
+
+    doc.fontSize(20).fillColor('#334155').text('Threat Summary', { underline: true });
+    doc.moveDown(1);
+    doc.fontSize(14).fillColor('#ef4444').text(`Critical count: ${counts.critical}`);
+    doc.moveDown(0.5);
+    doc.fontSize(14).fillColor('#f97316').text(`High count: ${counts.high}`);
+    doc.moveDown(0.5);
+    doc.fontSize(14).fillColor('#eab308').text(`Medium count: ${counts.medium}`);
+    doc.moveDown(0.5);
+    doc.fontSize(14).fillColor('#3b82f6').text(`Low count: ${counts.low}`);
+    
+    doc.addPage();
+
+    // --- Detailed Threat Table ---
+    doc.fontSize(20).fillColor('#334155').text('Detailed Threat Table', { underline: true });
+    doc.moveDown(1);
+
     threats.forEach((t, i) => {
-      doc.fontSize(16).fillColor('#334155').text(`${i + 1}. ${t.title}`);
-      doc.fontSize(10).fillColor('#94a3b8').text(`Category: ${t.category.toUpperCase()} | Severity: ${t.severity.toUpperCase()} | Published: ${t.publishedAt.toISOString().split('T')[0]}`);
+      // Title
+      doc.fontSize(16).fillColor('#0f172a').text(`${i + 1}. ${t.title}`, { continued: false });
+      doc.moveDown(0.3);
+
+      // Metadata
+      doc.fontSize(10).fillColor('#64748b')
+         .text(`Severity: ${t.severity.toUpperCase()} | Category: ${t.category.toUpperCase()} | Published: ${t.publishedAt.toISOString().split('T')[0]}`);
       doc.moveDown(0.5);
-      doc.fontSize(12).fillColor('#475569').text(t.summary);
+
+      // Summary
+      doc.fontSize(11).fillColor('#475569').text(t.summary, { align: 'justify' });
       doc.moveDown(0.5);
-      doc.fontSize(10).fillColor('#0284c7').text(`Source: ${t.source}`, { link: t.url, underline: true });
+
+      // Source & URL
+      doc.fontSize(10).fillColor('#0ea5e9').text(`Source: ${t.source}`, { link: t.url, underline: true });
       doc.moveDown(1.5);
     });
+
+    // --- Footer ---
+    const pages = doc.bufferedPageRange ? doc.bufferedPageRange().count : 1;
+    for (let i = 0; i < pages; i++) {
+      doc.switchToPage(i);
+      doc.fontSize(10).fillColor('#94a3b8').text(
+        'Generated by NovoCrypt',
+        50,
+        doc.page.height - 50,
+        { align: 'center', lineBreak: false }
+      );
+    }
 
     doc.end();
   } catch (error) {
