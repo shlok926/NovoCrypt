@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trophy, MessageSquare, Eye, ThumbsUp, Tag, TrendingUp, Zap, Shield } from 'lucide-react';
+import { Trophy, MessageSquare, Eye, ThumbsUp, Tag, TrendingUp, Zap, Shield, AlertCircle } from 'lucide-react';
 import { communityService } from '@/services/complianceCommunityService';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { LeaderboardEntry, CommunityThread, TrendingTopic } from '@/types/compliance-community-chatbot.types';
