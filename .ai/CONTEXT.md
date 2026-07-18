@@ -19,11 +19,17 @@ Successfully implemented the Threat Intelligence Feed API architecture including
 - `backend/src/config/env.ts` (Added Zod validation for `CRON_THREAT_FETCH`).
 - `frontend/src/hooks/useWebSocket.ts` (Added `threat_alert` event listener).
 - `frontend/src/pages/Dashboard.tsx` (Integrated 'Live Threat Radar' widget and real-time sliding 'Emergency Banner').
+- `backend/src/services/email.service.ts` (Added Nodemailer configuration).
+- `backend/src/services/pdf/*.ts` (Added PDFKit generation logic).
+- `backend/src/services/report.service.ts` (Created reporting orchestrator).
+- `backend/prisma/schema.prisma` (Added `UserPreference` and `ReportAudit` tables).
 
 **Recent Architectural Changes:**
-- Introduced `node-cron` for autonomous scheduled tasks (Threat Ingestion).
+- Introduced `node-cron` for autonomous scheduled tasks (Threat Ingestion & Automated Reporting).
 - Integrated Redis for high-speed caching on public feed routes (`/api/threats/feed`).
 - Standardized WebSocket event `threat:alert` for real-time frontend notifications on critical/high severity threats.
+- Added `UserPreference` and `ReportAudit` via Prisma for automated email tracking.
+- Orchestrated robust PDF dispatching system utilizing `pdfkit` and `nodemailer` completely in-memory (no temp files).
 - Added a new database table `UnsubscribeFeedback` via Prisma and pushed the schema directly to the database.
 
 **Pending TODO / Remaining Work:**

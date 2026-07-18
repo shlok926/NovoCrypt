@@ -3,8 +3,14 @@ import { requireAuth } from '../middleware/auth.middleware';
 import { prisma } from '../config/database';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
+import { z } from 'zod';
 
 export const reportsRouter = Router();
+
+const PreferencesSchema = z.object({
+  weeklySummary: z.boolean().optional(),
+  monthlyCompliance: z.boolean().optional(),
+});
 
 // Get User Report Preferences
 reportsRouter.get('/preferences', requireAuth, async (req: Request, res: Response) => {
@@ -34,7 +40,12 @@ reportsRouter.put('/preferences', requireAuth, async (req: Request, res: Respons
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-    const { weeklySummary, monthlyCompliance } = req.body;
+    const parseResult = PreferencesSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ success: false, message: 'Invalid data', errors: parseResult.error.format() });
+    }
+
+    const { weeklySummary, monthlyCompliance } = parseResult.data;
 
     const pref = await prisma.userPreference.upsert({
       where: { userId },
