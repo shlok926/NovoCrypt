@@ -6,25 +6,29 @@
 The development phase focused on securing the Newsletter Subscription (Part 1) and Verification/Unsubscribe flows (Part 2) has successfully concluded. The system is stable, secure, and actively rejecting bots and disposable emails while elegantly handling user unsubscriptions and feedback collection. The user has paused the session for the day and indicated that they will resume tomorrow to address the "remaining options B and C of security and Part 2."
 
 **Current Sprint:**
-Authentication Security Hardening (Cloudflare Turnstile).
+Threat Intelligence Feed API Implementation (Completed).
 
 **Current Objective:**
-Successfully integrated Cloudflare Turnstile into the `auth.routes.ts` (Login/Register) endpoints to prevent credential stuffing and brute-force attacks.
+Successfully implemented the Threat Intelligence Feed API architecture including `node-cron` data ingestion, Redis caching, and WebSocket real-time alerts.
 
 **Files Recently Modified:**
-- `backend/.env` (Added Turnstile Secret Key).
-- `backend/src/config/env.ts` (Added Zod validation for Turnstile key).
-- `backend/src/middleware/turnstile.middleware.ts` (Created server-to-server Cloudflare verification).
-- `backend/src/routes/auth.routes.ts` (Applied middleware to /login and /register).
+- `backend/src/jobs/cron.ts` (Created cron job to fetch external threats and broadcast alerts).
+- `backend/src/index.ts` (Hooked up cron jobs to start on boot).
+- `backend/src/services/threats.service.ts` (Added Redis caching logic to `getThreatFeed`).
+- `backend/src/config/websocket.ts` (Added `broadcastThreatAlert` function).
+- `backend/src/config/env.ts` (Added Zod validation for `CRON_THREAT_FETCH`).
+- `frontend/src/hooks/useWebSocket.ts` (Added `threat_alert` event listener).
 
 **Recent Architectural Changes:**
-- Removed inline JavaScript from backend-rendered HTML to comply with `helmet` Content-Security-Policy.
+- Introduced `node-cron` for autonomous scheduled tasks (Threat Ingestion).
+- Integrated Redis for high-speed caching on public feed routes (`/api/threats/feed`).
+- Standardized WebSocket event `threat:alert` for real-time frontend notifications on critical/high severity threats.
 - Added a new database table `UnsubscribeFeedback` via Prisma and pushed the schema directly to the database.
 
 **Pending TODO / Remaining Work:**
 - Apply Turnstile Site Key on the React Frontend Login/Register forms.
 - Integrate the Admin Analytics Dashboard for visualizing `UnsubscribeFeedback` (Future Scope).
-- Begin work on Threat Intelligence Feed API.
+- Build the Frontend UI for the Threat Intelligence Dashboard to consume `/api/threats/feed` and display `threat_alert` WebSocket events.
 
 **Deployment Status:**
 - Local Development environment.

@@ -3,14 +3,45 @@ import { Card, Button } from '../components/ui';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
+import { useWebSocket } from '../hooks/useWebSocket';
+import { threatService } from '../services/threatMigrationService';
+import { ThreatIntelligence } from '../types/threat-migration.types';
 import { 
   ShieldCheck, Activity, Zap, TrendingUp, Clock, AlertTriangle, 
-  CheckCircle, FileText, Beaker, Users, ChevronRight, Lock
+  CheckCircle, FileText, Beaker, Users, ChevronRight, Lock, Bell, AlertCircle
 } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { events: wsEvents, on } = useWebSocket(user?.id || null);
+  
+  const [latestThreats, setLatestThreats] = React.useState<ThreatIntelligence[]>([]);
+  const [activeAlert, setActiveAlert] = React.useState<ThreatIntelligence | null>(null);
+
+  React.useEffect(() => {
+    // Fetch initial latest threats
+    const fetchLatest = async () => {
+      try {
+        const data = await threatService.getAllThreats({ limit: 3 });
+        setLatestThreats(data);
+      } catch (error) {
+        console.error('Failed to fetch latest threats for dashboard', error);
+      }
+    };
+    fetchLatest();
+
+    // Listen for real-time threat alerts
+    const unsubscribe = on('threat_alert', (event) => {
+      setActiveAlert(event.data);
+      setLatestThreats(prev => [event.data, ...prev].slice(0, 3));
+      
+      // Auto-hide alert after 10 seconds
+      setTimeout(() => setActiveAlert(null), 10000);
+    });
+
+    return () => unsubscribe();
+  }, [on]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -43,6 +74,29 @@ export const Dashboard: React.FC = () => {
         initial="hidden"
         animate="visible"
       >
+        {/* Real-time Emergency Banner */}
+        {activeAlert && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 flex items-center gap-4 shadow-[0_0_20px_rgba(239,68,68,0.3)] mb-6 backdrop-blur-md"
+          >
+            <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center animate-pulse shrink-0">
+              <AlertTriangle className="w-6 h-6 text-red-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-red-400 font-bold uppercase tracking-wider text-sm flex items-center gap-2">
+                Critical Threat Detected <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+              </h3>
+              <p className="text-white text-lg font-medium mt-1">{activeAlert.title}</p>
+            </div>
+            <Button onClick={() => navigate('/threats')} className="bg-red-600 hover:bg-red-500 text-white border-none shrink-0">
+              View Details
+            </Button>
+          </motion.div>
+        )}
+
         {/* Header Section */}
         <motion.div variants={itemVariants} className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900/50 p-6 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-sm">
           <div className="flex items-center gap-4">
@@ -173,33 +227,84 @@ export const Dashboard: React.FC = () => {
           </motion.div>
         </motion.div>
         
-        {/* Recent Activity List */}
-        <motion.div variants={itemVariants} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Clock className="w-5 h-5 text-slate-400" /> Recent Activity
-            </h2>
-            <button className="text-sm text-blue-400 hover:text-blue-300 transition-colors">View All</button>
-          </div>
-          <div className="space-y-4">
-            {[
-              { icon: FileText, title: 'Compliance Report Generated', desc: 'NIST SP 800-175B readiness check completed.', time: '2 hours ago', color: 'text-blue-400', bg: 'bg-blue-400/10' },
-              { icon: Lock, title: 'Algorithm Tested', desc: 'ML-KEM encapsulation performance benchmarked.', time: 'Yesterday', color: 'text-purple-400', bg: 'bg-purple-400/10' },
-              { icon: Users, title: 'Community Thread Created', desc: 'Asked a question about hybrid deployment architectures.', time: '3 days ago', color: 'text-emerald-400', bg: 'bg-emerald-400/10' }
-            ].map((activity, idx) => (
-              <div key={idx} className="flex items-center gap-4 p-4 rounded-xl hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-700/50 cursor-pointer">
-                <div className={`p-3 rounded-lg ${activity.bg}`}>
-                  <activity.icon className={`w-5 h-5 ${activity.color}`} />
+        {/* Bottom Section: Split View */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+          {/* Recent Activity List (60%) */}
+          <motion.div variants={itemVariants} className="lg:col-span-2 bg-slate-900/40 border border-slate-800 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Clock className="w-5 h-5 text-slate-400" /> Recent Activity
+              </h2>
+              <button className="text-sm text-blue-400 hover:text-blue-300 transition-colors">View All</button>
+            </div>
+            <div className="space-y-4">
+              {[
+                { icon: FileText, title: 'Compliance Report Generated', desc: 'NIST SP 800-175B readiness check completed.', time: '2 hours ago', color: 'text-blue-400', bg: 'bg-blue-400/10' },
+                { icon: Lock, title: 'Algorithm Tested', desc: 'ML-KEM encapsulation performance benchmarked.', time: 'Yesterday', color: 'text-purple-400', bg: 'bg-purple-400/10' },
+                { icon: Users, title: 'Community Thread Created', desc: 'Asked a question about hybrid deployment architectures.', time: '3 days ago', color: 'text-emerald-400', bg: 'bg-emerald-400/10' }
+              ].map((activity, idx) => (
+                <div key={idx} className="flex items-center gap-4 p-4 rounded-xl hover:bg-slate-800/50 transition-colors border border-transparent hover:border-slate-700/50 cursor-pointer">
+                  <div className={`p-3 rounded-lg ${activity.bg}`}>
+                    <activity.icon className={`w-5 h-5 ${activity.color}`} />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-white font-medium">{activity.title}</h4>
+                    <p className="text-sm text-slate-400">{activity.desc}</p>
+                  </div>
+                  <span className="text-xs text-slate-500 font-medium whitespace-nowrap">{activity.time}</span>
                 </div>
-                <div className="flex-1">
-                  <h4 className="text-white font-medium">{activity.title}</h4>
-                  <p className="text-sm text-slate-400">{activity.desc}</p>
-                </div>
-                <span className="text-xs text-slate-500 font-medium whitespace-nowrap">{activity.time}</span>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Active Quantum Threats Widget (40%) */}
+          <motion.div variants={itemVariants} className="lg:col-span-1 bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800 rounded-2xl p-6 flex flex-col relative overflow-hidden">
+            {/* Background Glow */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="flex items-center justify-between mb-6 relative z-10">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-400" /> Live Threat Radar
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs text-slate-400 font-medium">Syncing</span>
               </div>
-            ))}
-          </div>
-        </motion.div>
+            </div>
+
+            <div className="space-y-4 flex-1 relative z-10">
+              {latestThreats.length > 0 ? (
+                latestThreats.map((threat) => (
+                  <div key={threat.id} className="p-4 rounded-xl bg-slate-950/50 border border-slate-800 hover:border-slate-700 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${
+                        threat.severity === 'critical' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                        threat.severity === 'high' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                        'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                      }`}>
+                        {threat.severity}
+                      </span>
+                      <span className="text-xs text-slate-500">{new Date(threat.date).toLocaleDateString()}</span>
+                    </div>
+                    <h4 className="text-white font-medium text-sm leading-snug line-clamp-2 mb-2">{threat.title}</h4>
+                    <a href={threat.source_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                      Read Advisory <ChevronRight className="w-3 h-3" />
+                    </a>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center p-6">
+                  <ShieldCheck className="w-12 h-12 text-slate-700 mb-3" />
+                  <p className="text-slate-500 text-sm">No recent threats detected.<br/>Global posture is stable.</p>
+                </div>
+              )}
+            </div>
+
+            <Button onClick={() => navigate('/threats')} className="w-full mt-4 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 relative z-10">
+              View Full Intel Feed
+            </Button>
+          </motion.div>
+        </div>
 
       </motion.div>
     </div>
