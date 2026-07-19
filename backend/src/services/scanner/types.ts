@@ -8,20 +8,20 @@ export interface ScanContext {
 }
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
-export type Confidence = 'high' | 'medium' | 'low';
 
-export interface ScanFinding {
-  id: string; // uuid
-  ruleId: string;
-  detector: string;
+export interface Evidence {
+  file?: string;
+  line?: number;
+  snippet: string;
+  matchedPattern: string;
+  language?: string;
+}
+
+export interface Rule {
+  id: string; // e.g., 'RULE_RSA_001'
   title: string;
   description: string;
   severity: Severity;
-  confidence: Confidence;
-  evidence: string;
-  file?: string;
-  lineNumber?: number;
-  language?: string;
   algorithm?: string;
   keySize?: number;
   currentRisk: string;
@@ -30,9 +30,35 @@ export interface ScanFinding {
   references: string[];
 }
 
+export interface ScanFinding {
+  id: string; // uuid
+  ruleId: string;
+  detector: string;
+  title: string;
+  description: string;
+  severity: Severity;
+  confidence: number; // 0-100%
+  evidence: Evidence;
+  algorithm?: string;
+  keySize?: number;
+  currentRisk: string;
+  quantumRisk: string;
+  recommendation: string;
+  references: string[];
+}
+
+export interface DetectorMetadata {
+  version: string;
+  author: string;
+  ruleVersion: string;
+  category: string;
+  documentationUrl: string;
+}
+
 export interface CryptoDetector {
   id: string;
   name: string;
+  metadata: DetectorMetadata;
   supportedTargets: TargetType[];
   scan(context: ScanContext): Promise<ScanFinding[]>;
 }
