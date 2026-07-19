@@ -5,6 +5,7 @@ export interface ReportContext {
   startDate: Date;
   endDate: Date;
   enabledModules: string[];
+  cache: Map<string, any>;
 }
 
 export interface ReportSection {
@@ -23,4 +24,10 @@ export interface ReportSection {
    * Called only if fetchData returned true and the module is enabled.
    */
   renderPdf(doc: PDFKit.PDFDocument, context: ReportContext): void | Promise<void>;
+
+  /**
+   * Optional: Verify if the user is authorized to view this section.
+   * If not implemented, defaults to true.
+   */
+  isAuthorized?(context: ReportContext): Promise<boolean>;
 }

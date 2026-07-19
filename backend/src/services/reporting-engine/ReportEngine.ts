@@ -5,6 +5,9 @@ export class ReportEngine {
   private sections: Map<string, ReportSection> = new Map();
 
   registerSection(section: ReportSection) {
+    if (this.sections.has(section.id)) {
+      throw new Error(`ReportEngine: A section with ID '${section.id}' is already registered.`);
+    }
     this.sections.set(section.id, section);
   }
 
@@ -28,18 +31,43 @@ export class ReportEngine {
         let dataFound = false;
 
         for (const section of activeSections) {
-          const hasData = await section.fetchData(context);
-          if (hasData) {
-            dataFound = true;
-            // Draw Section Separator
+          try {
+            // 1. Check Authorization
+            if (section.isAuthorized) {
+              const authorized = await section.isAuthorized(context);
+              if (!authorized) {
+                console.log(`ReportEngine: Skipping section '${section.id}' - Unauthorized.`);
+                continue;
+              }
+            }
+
+            // 2. Fetch Data
+            const hasData = await section.fetchData(context);
+            if (hasData) {
+              dataFound = true;
+              
+              // Draw Section Separator
+              doc.moveDown(3);
+              doc.rect(50, doc.y, doc.page.width - 100, 1).fill('#e2e8f0');
+              doc.moveDown(1);
+              
+              doc.fontSize(20).fillColor('#1e293b').text(section.title);
+              doc.moveDown(1);
+              
+              // 3. Render Section
+              await section.renderPdf(doc, context);
+            }
+          } catch (sectionError) {
+            console.error(`ReportEngine: Failed to generate section '${section.id}':`, sectionError);
+            
+            // Render failure banner instead of crashing the whole report
             doc.moveDown(3);
-            doc.rect(50, doc.y, doc.page.width - 100, 1).fill('#e2e8f0');
+            doc.rect(50, doc.y, doc.page.width - 100, 1).fill('#fecaca');
             doc.moveDown(1);
-            
             doc.fontSize(20).fillColor('#1e293b').text(section.title);
-            doc.moveDown(1);
-            
-            await section.renderPdf(doc, context);
+            doc.moveDown(0.5);
+            doc.fontSize(10).fillColor('#ef4444').text(`Failed to generate ${section.title} section. Please contact support if this issue persists.`, { align: 'justify' });
+            dataFound = true; // Prevents "No data" message
           }
         }
 

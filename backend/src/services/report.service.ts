@@ -378,7 +378,8 @@ For more information, visit novocrypt.com
           reportPeriod: 'Weekly Summary',
           startDate: lastWeek,
           endDate: new Date(),
-          enabledModules: ['threat_intelligence']
+          enabledModules: ['threat_intelligence'],
+          cache: new Map()
         });
       }
 
@@ -541,7 +542,8 @@ For more information, visit novocrypt.com
           reportPeriod: 'Monthly Compliance',
           startDate: lastMonth,
           endDate: new Date(),
-          enabledModules: ['threat_intelligence']
+          enabledModules: ['threat_intelligence'],
+          cache: new Map()
         });
       }
 

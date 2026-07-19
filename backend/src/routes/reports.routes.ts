@@ -173,7 +173,8 @@ reportsRouter.post('/export-executive', requireAuth, async (req: Request, res: R
       reportPeriod: `Last ${dateRange.replace('d', ' Days')}`,
       startDate,
       endDate: new Date(),
-      enabledModules: modules
+      enabledModules: modules,
+      cache: new Map()
     });
 
     const dateStr = new Date().toISOString().split('T')[0];
