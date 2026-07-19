@@ -7,7 +7,13 @@
 - **Phase 2 (Completed):** Enterprise-Grade Newsletter Hardening & Security Implementation. Transitioned from naive subscription to a robust Double Opt-In system.
 
 **Completed Features:**
-1. **Double Opt-In Newsletter System:**
+1. **Threat Intelligence Feed & Export Engine (Completed & Frozen):**
+   - Replaced all frontend-mocked intelligence with real, database-backed fields.
+   - Expanded `ThreatItem` schema with enterprise parameters (`cveId`, `impact`, `affectedAlgorithms`).
+   - Hardened database outage handling to explicitly return 500 status rather than mocking empty arrays.
+   - Re-architected CSV and PDF exporters to render highly-structured executive reports dynamically containing new database fields.
+   
+2. **Double Opt-In Newsletter System:**
    - Generates 32-byte secure crypto tokens upon subscription.
    - Saves users in DB as `verified: false`.
    - Sends modern, dark-mode verification emails via Nodemailer.
@@ -39,6 +45,7 @@
 
 **Database Decisions:**
 - Introduced `UnsubscribeFeedback` model to separate churn analytics from active subscriptions.
+- Expanded `ThreatItem` model to include `affectedAlgorithms`, `impact`, `recommendation`, and `cveId` for strict backend-controlled intelligence.
 - ThreatSubscriptions contain a `severityThreshold` and `verificationToken`.
 
 **Rejected Approaches:**

@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { threatService } from '../services/threatMigrationService';
 import { ThreatIntelligence } from '../types/threat-migration.types';
+import { ExecutiveReportModal } from './components/ExecutiveReportModal';
 import { 
   ShieldCheck, Activity, Zap, TrendingUp, Clock, AlertTriangle, 
   CheckCircle, FileText, Beaker, Users, ChevronRight, Lock, Bell, AlertCircle
@@ -18,6 +19,7 @@ export const Dashboard: React.FC = () => {
   
   const [latestThreats, setLatestThreats] = React.useState<ThreatIntelligence[]>([]);
   const [activeAlert, setActiveAlert] = React.useState<ThreatIntelligence | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = React.useState(false);
 
   React.useEffect(() => {
     // Fetch initial latest threats
@@ -112,6 +114,9 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-3">
+            <Button onClick={() => setIsReportModalOpen(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white border-none shadow-[0_0_15px_rgba(37,99,235,0.4)]">
+              <FileText className="w-4 h-4" /> Executive Report
+            </Button>
             <Button onClick={() => navigate('/risk')} className="flex items-center gap-2 shadow-[0_0_15px_rgba(34,211,238,0.3)]">
               <Activity className="w-4 h-4" /> New Scan
             </Button>
@@ -305,7 +310,11 @@ export const Dashboard: React.FC = () => {
             </Button>
           </motion.div>
         </div>
-
+        
+        <ExecutiveReportModal 
+          isOpen={isReportModalOpen} 
+          onClose={() => setIsReportModalOpen(false)} 
+        />
       </motion.div>
     </div>
   );

@@ -2,8 +2,7 @@ import { prisma } from '../config/database';
 import * as fs from 'fs';
 import * as path from 'path';
 import { sendEmailReport } from './email.service';
-import { generateWeeklyPDFBuffer } from './pdf/weekly-report';
-import { generateMonthlyPDFBuffer } from './pdf/monthly-report';
+import { reportEngine } from './reporting-engine';
 
 // Priority map for deterministic severity sorting
 const SEVERITY_WEIGHT: Record<string, number> = {
@@ -374,7 +373,13 @@ For more information, visit novocrypt.com
       let pdfBuffer: Buffer | null = null;
 
       if (threats.length > 0) {
-        pdfBuffer = await generateWeeklyPDFBuffer(threats);
+        pdfBuffer = await reportEngine.generateReportBuffer({
+          userId: 'system',
+          reportPeriod: 'Weekly Summary',
+          startDate: lastWeek,
+          endDate: new Date(),
+          enabledModules: ['threat_intelligence']
+        });
       }
 
       while (true) {
@@ -531,7 +536,13 @@ For more information, visit novocrypt.com
       let pdfBuffer: Buffer | null = null;
 
       if (threats.length > 0) {
-        pdfBuffer = await generateMonthlyPDFBuffer(threats);
+        pdfBuffer = await reportEngine.generateReportBuffer({
+          userId: 'system',
+          reportPeriod: 'Monthly Compliance',
+          startDate: lastMonth,
+          endDate: new Date(),
+          enabledModules: ['threat_intelligence']
+        });
       }
 
       while (true) {

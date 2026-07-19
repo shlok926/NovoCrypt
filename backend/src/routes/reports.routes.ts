@@ -4,6 +4,7 @@ import { prisma } from '../config/database';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
 import { z } from 'zod';
+import { reportEngine } from '../services/reporting-engine';
 
 export const reportsRouter = Router();
 
@@ -136,6 +137,53 @@ reportsRouter.get('/export-csv', requireAuth, async (req: Request, res: Response
     res.send(csv);
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to export CSV' });
+  }
+});
+
+const ExecutiveReportSchema = z.object({
+  modules: z.array(z.string()).min(1),
+  dateRange: z.enum(['7d', '30d', '90d', 'all']).default('30d')
+});
+
+// Generate Executive Report
+reportsRouter.post('/export-executive', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const parseResult = ExecutiveReportSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ success: false, message: 'Invalid payload', errors: parseResult.error.format() });
+    }
+
+    const { modules, dateRange } = parseResult.data;
+
+    let startDate = new Date();
+    if (dateRange === '7d') startDate.setDate(startDate.getDate() - 7);
+    else if (dateRange === '30d') startDate.setDate(startDate.getDate() - 30);
+    else if (dateRange === '90d') startDate.setDate(startDate.getDate() - 90);
+    else startDate = new Date(0); // 'all'
+
+    // Fetch user context
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    const buffer = await reportEngine.generateReportBuffer({
+      userId,
+      organizationName: 'NovoCrypt Customer',
+      reportPeriod: `Last ${dateRange.replace('d', ' Days')}`,
+      startDate,
+      endDate: new Date(),
+      enabledModules: modules
+    });
+
+    const dateStr = new Date().toISOString().split('T')[0];
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Executive-Security-Report-${dateStr}.pdf"`);
+    res.send(buffer);
+  } catch (error) {
+    console.error('Failed to generate executive report:', error);
+    res.status(500).json({ success: false, message: 'Failed to generate report' });
   }
 });
 
