@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { scannerEngine } from '../services/scanner';
 import { prisma } from '../config/database';
 import { AssetActivityService } from '../services/assets/AssetActivityService';
+import { QueueService } from '../services/jobs/QueueService';
 
 const router = Router();
 
@@ -30,38 +30,14 @@ router.post('/ssl', async (req: Request, res: Response) => {
       });
     }
 
-    const result = await scannerEngine.runScan({
-      targetType: 'url',
-      target: domain,
-    });
+    const job = await QueueService.enqueue(
+      'scanner',
+      'url-scan',
+      { targetType: 'url', target: domain },
+      { assetId, requestedByUserId: userId }
+    );
 
-    if (userId) {
-      const scan = await prisma.scanResult.create({
-        data: {
-          userId,
-          assetId,
-          scanType: 'url',
-          inputTarget: domain,
-          findings: result.findings as any,
-          overallScore: result.overallRiskScore,
-          riskLevel: result.riskLevel,
-        }
-      });
-
-      if (assetId) {
-        await prisma.asset.update({
-          where: { id: assetId },
-          data: {
-            latestScanId: scan.id,
-            lastScanAt: scan.scannedAt,
-            currentRiskScore: scan.overallScore,
-            currentQuantumReadiness: result.quantumReadinessScore
-          }
-        });
-      }
-    }
-
-    res.json({ success: true, data: result });
+    res.json({ success: true, data: { jobId: job.id, status: 'queued' } });
   } catch (error) {
     console.error('SSL scan error:', error);
     res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'SSL scan failed' });
@@ -83,39 +59,14 @@ router.post('/code', async (req: Request, res: Response) => {
       if (!asset) return res.status(404).json({ success: false, message: 'Asset not found' });
     }
 
-    const result = await scannerEngine.runScan({
-      targetType: 'code',
-      target: code,
-      fileName,
-    });
+    const job = await QueueService.enqueue(
+      'scanner',
+      'code-scan',
+      { targetType: 'code', target: code, fileName },
+      { assetId, requestedByUserId: userId }
+    );
 
-    if (userId) {
-      const scan = await prisma.scanResult.create({
-        data: {
-          userId,
-          assetId,
-          scanType: 'code',
-          inputTarget: fileName,
-          findings: result.findings as any,
-          overallScore: result.overallRiskScore,
-          riskLevel: result.riskLevel,
-        }
-      });
-
-      if (assetId) {
-        await prisma.asset.update({
-          where: { id: assetId },
-          data: {
-            latestScanId: scan.id,
-            lastScanAt: scan.scannedAt,
-            currentRiskScore: scan.overallScore,
-            currentQuantumReadiness: result.quantumReadinessScore
-          }
-        });
-      }
-    }
-
-    res.json({ success: true, data: result });
+    res.json({ success: true, data: { jobId: job.id, status: 'queued' } });
   } catch (error) {
     console.error('Code scan error:', error);
     res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Code scan failed' });

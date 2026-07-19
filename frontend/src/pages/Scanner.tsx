@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { assetApi, Asset, AssetEvent } from '@/services/assets';
 import { scannerApi, ScanResult, ScanFinding } from '@/services/scanner';
-import { Shield, Search, FileText, CheckCircle, AlertTriangle, XCircle, Terminal, Download, Globe, Server, FileCode, ArrowRight, Activity, Clock, Plus, FolderGit2, Trash2, RefreshCw } from 'lucide-react';
+import { jobApi, Job } from '@/services/jobs';
+import { Shield, Search, FileText, CheckCircle, AlertTriangle, XCircle, Terminal, Download, Globe, Server, FileCode, ArrowRight, Activity, Clock, Plus, FolderGit2, Trash2, RefreshCw, Layers } from 'lucide-react';
 
 const Scanner: React.FC = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -18,12 +19,35 @@ const Scanner: React.FC = () => {
   const [activeFinding, setActiveFinding] = useState<ScanFinding | null>(null);
 
   // Timeline State
-  const [activeTab, setActiveTab] = useState<'findings' | 'timeline'>('findings');
+  const [activeTab, setActiveTab] = useState<'findings' | 'timeline' | 'jobs'>('findings');
   const [timelineEvents, setTimelineEvents] = useState<AssetEvent[]>([]);
 
+  // Jobs State
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [activeJob, setActiveJob] = useState<Job | null>(null);
+
   useEffect(() => {
-    fetchAssets();
-  }, []);
+    let interval: NodeJS.Timeout;
+    if (activeJobId) {
+      interval = setInterval(async () => {
+        try {
+          const res = await jobApi.get(activeJobId);
+          setActiveJob(res.data);
+          
+          if (res.data.jobStatus === 'completed' || res.data.jobStatus === 'failed') {
+            setIsScanning(false);
+            setActiveJobId(null);
+            fetchAssets();
+            if (selectedAsset) fetchTimeline(selectedAsset.id);
+            setActiveTab('timeline'); // Switch to timeline to show snapshot
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [activeJobId, selectedAsset]);
 
   const fetchAssets = async () => {
     try {
@@ -57,16 +81,9 @@ const Scanner: React.FC = () => {
     setScanResult(null);
     setActiveFinding(null);
     setSelectedAsset(asset);
+    setActiveTab('jobs');
 
     try {
-      setScanStatus('Preparing Workspace...');
-      await new Promise(r => setTimeout(r, 500));
-      
-      setScanStatus('Initializing Engine...');
-      await new Promise(r => setTimeout(r, 800));
-      
-      setScanStatus('Analyzing Asset...');
-      
       let response;
       if (asset.assetType === 'ssl' || asset.assetType === 'website') {
         response = await scannerApi.scanUrl(asset.domain!, asset.id);
@@ -74,19 +91,21 @@ const Scanner: React.FC = () => {
         response = await scannerApi.scanCode(asset.repositoryUrl || 'const rsa = new RSA(2048);', 'index.js', asset.id);
       }
 
-      setScanStatus('Finalizing Risk Posture...');
-      await new Promise(r => setTimeout(r, 500));
-      
-      setScanResult(response.data);
-      setActiveTab('findings');
-      await fetchAssets();
-      await fetchTimeline(asset.id);
+      if ((response.data as any).jobId) {
+        setActiveJobId((response.data as any).jobId);
+        setScanStatus('Job Queued...');
+      } else {
+        // Fallback for mock/sync returns
+        setScanResult(response.data);
+        setActiveTab('findings');
+        setIsScanning(false);
+        fetchAssets();
+        fetchTimeline(asset.id);
+      }
     } catch (error) {
       console.error("Scan failed", error);
       alert("Scan failed. Please check the console for details.");
-    } finally {
       setIsScanning(false);
-      setScanStatus('');
     }
   };
 
@@ -207,7 +226,7 @@ const Scanner: React.FC = () => {
                       className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg font-semibold flex items-center transition-colors shadow-lg shadow-cyan-900/20"
                     >
                       {isScanning ? (
-                        <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> {scanStatus}</>
+                        <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> {activeJob?.currentStage || 'Running...'}</>
                       ) : (
                         <><Activity className="w-4 h-4 mr-2" /> Run Analysis</>
                       )}
@@ -253,7 +272,60 @@ const Scanner: React.FC = () => {
                   >
                     <Clock className="w-4 h-4 mr-2" /> Asset Timeline
                   </button>
+                  <button 
+                    onClick={() => setActiveTab('jobs')}
+                    className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors flex items-center ${activeTab === 'jobs' ? 'border-orange-500 text-orange-400' : 'border-transparent text-slate-400 hover:text-slate-300'}`}
+                  >
+                    <Layers className="w-4 h-4 mr-2" /> Active Jobs
+                  </button>
                 </div>
+
+                {/* Jobs Tab */}
+                {activeTab === 'jobs' && (
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-lg p-6 animate-in fade-in slide-in-from-bottom-4">
+                    <h3 className="text-lg font-semibold text-white mb-6">Execution Jobs</h3>
+                    
+                    {!activeJob ? (
+                      <div className="text-center text-slate-500 py-8">No active jobs running for this asset.</div>
+                    ) : (
+                      <div className="bg-slate-950 border border-slate-800 rounded-lg p-5">
+                        <div className="flex justify-between items-center mb-4">
+                          <div className="flex items-center gap-3">
+                            <span className="bg-blue-500/20 text-blue-400 p-2 rounded-lg"><Activity className="w-5 h-5"/></span>
+                            <div>
+                              <h4 className="text-white font-medium capitalize">{activeJob.jobType.replace('-', ' ')}</h4>
+                              <p className="text-xs text-slate-500 font-mono">Job ID: {activeJob.id.split('-')[0]}</p>
+                            </div>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                            activeJob.jobStatus === 'completed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                            activeJob.jobStatus === 'failed' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                            'bg-orange-500/20 text-orange-400 border border-orange-500/30 animate-pulse'
+                          }`}>
+                            {activeJob.jobStatus}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-400">Progress</span>
+                            <span className="text-white font-medium">{activeJob.progress}%</span>
+                          </div>
+                          <div className="w-full bg-slate-800 rounded-full h-2">
+                            <div className="bg-gradient-to-r from-blue-500 to-cyan-400 h-2 rounded-full transition-all duration-500" style={{ width: `${activeJob.progress}%` }}></div>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-2 text-right">{activeJob.currentStage || 'Waiting in queue...'}</p>
+                        </div>
+                        
+                        {activeJob.errorMessage && (
+                          <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+                            <strong>Error:</strong> {activeJob.errorMessage}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Timeline Tab */}
                 {activeTab === 'timeline' && (

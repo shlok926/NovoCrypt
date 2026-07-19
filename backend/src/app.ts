@@ -7,6 +7,7 @@ import routes from './routes';
 import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { apiRateLimiter } from './middleware/rateLimit.middleware';
+import { WorkerService } from './services/jobs/WorkerService';
 
 const app = express();
 
@@ -36,5 +37,8 @@ app.use(apiRateLimiter);
 app.use('/api', routes);
 app.use(notFoundHandler);
 app.use(errorHandler);
+
+// Initialize background workers
+WorkerService.initializeWorkers();
 
 export default app;
