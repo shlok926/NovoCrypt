@@ -136,9 +136,9 @@ export class ReportEngine {
   }
 
   private renderFooter(doc: PDFKit.PDFDocument) {
-    const pages = doc.bufferedPageRange().count;
+    const pages = doc.bufferedPageRange ? doc.bufferedPageRange().count : 1;
     for (let i = 0; i < pages; i++) {
-      doc.switchToPage(i);
+      if (doc.switchToPage) doc.switchToPage(i);
       
       // Footer text with Metadata
       doc.fontSize(8).fillColor('#94a3b8').text(

@@ -62,7 +62,12 @@ export async function getThreatFeed(
     const skip = (page - 1) * limit;
 
     const cacheKey = `threats:feed:${page}:${limit}:${category || 'all'}:${severity || 'all'}`;
-    const cached = await redis.get(cacheKey);
+    let cached = null;
+    try {
+      cached = await redis.get(cacheKey);
+    } catch (err: any) {
+      console.warn('Redis cache unavailable for getThreatFeed:', err.message);
+    }
 
     if (cached) {
       return JSON.parse(cached);
@@ -91,7 +96,11 @@ export async function getThreatFeed(
     };
 
     // Cache for 5 minutes (300 seconds)
-    await redis.setex(cacheKey, 300, JSON.stringify(result));
+    try {
+      await redis.setex(cacheKey, 300, JSON.stringify(result));
+    } catch (err: any) {
+      console.warn('Redis unavailable to set getThreatFeed cache:', err.message);
+    }
 
     return result;
   } catch (error) {
