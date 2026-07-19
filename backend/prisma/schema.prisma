@@ -118,8 +118,50 @@ model Asset {
   updatedAt             DateTime     @updatedAt @map("updated_at")
   user                  User         @relation("Assets", fields: [userId], references: [id], onDelete: Cascade)
   scanResults           ScanResult[] @relation("AssetScans")
+  events                AssetEvent[] @relation("AssetEvents")
+  snapshots             AssetSnapshot[] @relation("AssetSnapshots")
 
   @@map("assets")
+}
+
+model AssetEvent {
+  id               String   @id @default(uuid()) @db.Uuid
+  assetId          String   @map("asset_id") @db.Uuid
+  eventType        String   @map("event_type") @db.VarChar(100)
+  title            String   @db.VarChar(255)
+  description      String   @db.Text
+  severity         String   @db.VarChar(50) // 'info' | 'warning' | 'critical'
+  sourceModule     String   @map("source_module") @db.VarChar(100) // 'scanner' | 'threat-intel' | 'compliance' | 'system'
+  eventData        Json?    @map("event_data") @db.JsonB
+  createdByUserId  String?  @map("created_by_user_id") @db.Uuid
+  systemGenerated  Boolean  @default(true) @map("system_generated")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  asset            Asset    @relation("AssetEvents", fields: [assetId], references: [id], onDelete: Cascade)
+  user             User?    @relation("UserEvents", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([assetId, createdAt(sort: Desc)])
+  @@map("asset_events")
+}
+
+model AssetSnapshot {
+  id                    String   @id @default(uuid()) @db.Uuid
+  assetId               String   @map("asset_id") @db.Uuid
+  scanResultId          String?  @map("scan_result_id") @db.Uuid
+  overallRiskScore      Int      @map("overall_risk_score")
+  quantumReadinessScore Int      @map("quantum_readiness_score")
+  criticalFindings      Int      @map("critical_findings")
+  highFindings          Int      @map("high_findings")
+  mediumFindings        Int      @map("medium_findings")
+  lowFindings           Int      @map("low_findings")
+  algorithmSummary      Json     @map("algorithm_summary") @db.JsonB
+  capturedAt            DateTime @default(now()) @map("captured_at")
+
+  asset                 Asset    @relation("AssetSnapshots", fields: [assetId], references: [id], onDelete: Cascade)
+  scanResult            ScanResult? @relation("SnapshotScan", fields: [scanResultId], references: [id], onDelete: SetNull)
+
+  @@index([assetId, capturedAt(sort: Desc)])
+  @@map("asset_snapshots")
 }
 
 model ScanResult {
@@ -134,6 +176,7 @@ model ScanResult {
   scannedAt   DateTime @default(now()) @map("scanned_at")
   user        User     @relation("ScanResults", fields: [userId], references: [id], onDelete: Cascade)
   asset       Asset?   @relation("AssetScans", fields: [assetId], references: [id], onDelete: SetNull)
+  snapshots   AssetSnapshot[] @relation("SnapshotScan")
 
   @@map("scan_results")
 }
@@ -306,6 +349,7 @@ model User {
   preference      UserPreference?  @relation("UserPreference")
   reportAudits    ReportAudit[]    @relation("ReportAudits")
   assets          Asset[]          @relation("Assets")
+  assetEvents     AssetEvent[]     @relation("UserEvents")
 
   @@map("users")
 }

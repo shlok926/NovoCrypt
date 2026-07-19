@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { assetApi, Asset } from '@/services/assets';
+import { assetApi, Asset, AssetEvent } from '@/services/assets';
 import { scannerApi, ScanResult, ScanFinding } from '@/services/scanner';
 import { Shield, Search, FileText, CheckCircle, AlertTriangle, XCircle, Terminal, Download, Globe, Server, FileCode, ArrowRight, Activity, Clock, Plus, FolderGit2, Trash2, RefreshCw } from 'lucide-react';
 
@@ -16,6 +16,10 @@ const Scanner: React.FC = () => {
   const [scanStatus, setScanStatus] = useState<string>('');
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [activeFinding, setActiveFinding] = useState<ScanFinding | null>(null);
+
+  // Timeline State
+  const [activeTab, setActiveTab] = useState<'findings' | 'timeline'>('findings');
+  const [timelineEvents, setTimelineEvents] = useState<AssetEvent[]>([]);
 
   useEffect(() => {
     fetchAssets();
@@ -67,7 +71,6 @@ const Scanner: React.FC = () => {
       if (asset.assetType === 'ssl' || asset.assetType === 'website') {
         response = await scannerApi.scanUrl(asset.domain!, asset.id);
       } else {
-        // Mock code scan using URL/repo as input for demo
         response = await scannerApi.scanCode(asset.repositoryUrl || 'const rsa = new RSA(2048);', 'index.js', asset.id);
       }
 
@@ -75,7 +78,9 @@ const Scanner: React.FC = () => {
       await new Promise(r => setTimeout(r, 500));
       
       setScanResult(response.data);
-      await fetchAssets(); // Refresh assets to show updated scores
+      setActiveTab('findings');
+      await fetchAssets();
+      await fetchTimeline(asset.id);
     } catch (error) {
       console.error("Scan failed", error);
       alert("Scan failed. Please check the console for details.");
@@ -83,6 +88,23 @@ const Scanner: React.FC = () => {
       setIsScanning(false);
       setScanStatus('');
     }
+  };
+
+  const fetchTimeline = async (assetId: string) => {
+    try {
+      const response = await assetApi.getTimeline(assetId);
+      setTimelineEvents(response.data);
+    } catch (error) {
+      console.error('Failed to fetch timeline', error);
+    }
+  };
+
+  const handleSelectAsset = async (asset: Asset) => {
+    setSelectedAsset(asset);
+    setScanResult(null);
+    setActiveFinding(null);
+    setActiveTab('findings');
+    await fetchTimeline(asset.id);
   };
 
   return (
@@ -134,7 +156,7 @@ const Scanner: React.FC = () => {
                   assets.map(asset => (
                     <div 
                       key={asset.id} 
-                      onClick={() => { setSelectedAsset(asset); setScanResult(null); }}
+                      onClick={() => handleSelectAsset(asset)}
                       className={`p-4 hover:bg-slate-800/50 cursor-pointer transition-colors ${selectedAsset?.id === asset.id ? 'bg-slate-800 border-l-4 border-l-blue-500' : 'border-l-4 border-l-transparent'}`}
                     >
                       <div className="flex items-center justify-between mb-1">
@@ -217,8 +239,55 @@ const Scanner: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Tabs */}
+                <div className="flex space-x-4 border-b border-slate-800">
+                  <button 
+                    onClick={() => setActiveTab('findings')}
+                    className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'findings' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-300'}`}
+                  >
+                    Live Posture & Findings
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('timeline')}
+                    className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors flex items-center ${activeTab === 'timeline' ? 'border-purple-500 text-purple-400' : 'border-transparent text-slate-400 hover:text-slate-300'}`}
+                  >
+                    <Clock className="w-4 h-4 mr-2" /> Asset Timeline
+                  </button>
+                </div>
+
+                {/* Timeline Tab */}
+                {activeTab === 'timeline' && (
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-lg p-6 animate-in fade-in slide-in-from-bottom-4">
+                    <h3 className="text-lg font-semibold text-white mb-6">Historical Events</h3>
+                    {timelineEvents.length === 0 ? (
+                      <div className="text-center text-slate-500 py-8">No historical events recorded yet. Run a scan to generate the first event.</div>
+                    ) : (
+                      <div className="relative border-l border-slate-800 ml-3 space-y-8">
+                        {timelineEvents.map((event) => (
+                          <div key={event.id} className="relative pl-8">
+                            <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-4 border-slate-900 ${
+                              event.severity === 'critical' ? 'bg-red-500' :
+                              event.severity === 'warning' ? 'bg-orange-500' : 'bg-blue-500'
+                            }`} />
+                            <div className="flex justify-between items-start mb-1">
+                              <h4 className="text-white font-medium text-sm">{event.title}</h4>
+                              <span className="text-xs text-slate-500 font-mono bg-slate-950 px-2 py-1 rounded">
+                                {new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(event.createdAt))}
+                              </span>
+                            </div>
+                            <p className="text-slate-400 text-sm mb-2">{event.description}</p>
+                            <div className="flex items-center space-x-3 text-xs">
+                              <span className="text-slate-500 uppercase tracking-wider">{event.sourceModule}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Live Scan Results Overlay */}
-                {scanResult && (
+                {activeTab === 'findings' && scanResult && (
                   <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-lg overflow-hidden animate-in fade-in slide-in-from-bottom-4">
                     <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
                       <h2 className="text-lg font-semibold text-white">Latest Security Findings</h2>
@@ -286,7 +355,7 @@ const Scanner: React.FC = () => {
                 )}
 
                 {/* Finding Details Panel */}
-                {activeFinding && (
+                {activeTab === 'findings' && activeFinding && (
                   <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-lg p-6 animate-in fade-in slide-in-from-bottom-4">
                     <div className="flex justify-between items-start mb-4">
                       <div>

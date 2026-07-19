@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { scannerEngine } from '../services/scanner';
 import { prisma } from '../config/database';
+import { AssetActivityService } from '../services/assets/AssetActivityService';
 
 const router = Router();
 
@@ -17,6 +18,16 @@ router.post('/ssl', async (req: Request, res: Response) => {
     if (assetId) {
       const asset = await prisma.asset.findFirst({ where: { id: assetId, userId } });
       if (!asset) return res.status(404).json({ success: false, message: 'Asset not found' });
+      
+      await AssetActivityService.publishEvent({
+        assetId,
+        eventType: 'Scan Started',
+        title: 'SSL Scan Initiated',
+        description: `Automated SSL scan started for domain ${domain}`,
+        severity: 'info',
+        sourceModule: 'scanner',
+        createdByUserId: userId
+      });
     }
 
     const result = await scannerEngine.runScan({

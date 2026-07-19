@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../config/database';
 import { authenticate } from '../middleware/auth';
+import { AssetActivityService } from '../services/assets/AssetActivityService';
 
 const router = Router();
 router.use(authenticate);
@@ -102,6 +103,40 @@ router.delete('/:id', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Delete asset error:', error);
     res.status(500).json({ success: false, message: 'Failed to delete asset' });
+  }
+});
+
+// GET /api/assets/:id/timeline - Get asset event timeline
+router.get('/:id/timeline', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+
+    const asset = await prisma.asset.findFirst({ where: { id, userId } });
+    if (!asset) return res.status(404).json({ success: false, message: 'Asset not found' });
+
+    const timeline = await AssetActivityService.getTimeline(id);
+    res.json({ success: true, data: timeline });
+  } catch (error) {
+    console.error('Timeline fetch error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch timeline' });
+  }
+});
+
+// GET /api/assets/:id/snapshots - Get historical snapshots
+router.get('/:id/snapshots', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+
+    const asset = await prisma.asset.findFirst({ where: { id, userId } });
+    if (!asset) return res.status(404).json({ success: false, message: 'Asset not found' });
+
+    const snapshots = await AssetActivityService.getSnapshots(id);
+    res.json({ success: true, data: snapshots });
+  } catch (error) {
+    console.error('Snapshots fetch error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch snapshots' });
   }
 });
 

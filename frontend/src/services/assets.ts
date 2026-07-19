@@ -19,6 +19,32 @@ export interface Asset {
   scanResults?: any[];
 }
 
+export interface AssetEvent {
+  id: string;
+  assetId: string;
+  eventType: string;
+  title: string;
+  description: string;
+  severity: 'info' | 'warning' | 'critical';
+  sourceModule: string;
+  eventData?: any;
+  createdAt: string;
+}
+
+export interface AssetSnapshot {
+  id: string;
+  assetId: string;
+  scanResultId?: string;
+  overallRiskScore: number;
+  quantumReadinessScore: number;
+  criticalFindings: number;
+  highFindings: number;
+  mediumFindings: number;
+  lowFindings: number;
+  algorithmSummary: Record<string, number>;
+  capturedAt: string;
+}
+
 export const assetApi = {
   list(): Promise<{ data: Asset[] }> {
     return api.get('/assets').then(res => res.data);
@@ -31,5 +57,11 @@ export const assetApi = {
   },
   archive(id: string): Promise<{ success: boolean }> {
     return api.delete(`/assets/${id}`).then(res => res.data);
+  },
+  getTimeline(id: string): Promise<{ data: AssetEvent[] }> {
+    return api.get(`/assets/${id}/timeline`).then(res => res.data);
+  },
+  getSnapshots(id: string): Promise<{ data: AssetSnapshot[] }> {
+    return api.get(`/assets/${id}/snapshots`).then(res => res.data);
   }
 };
