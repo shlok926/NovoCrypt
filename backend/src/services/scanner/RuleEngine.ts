@@ -2,11 +2,13 @@ import { Evidence, Rule, ScanFinding } from './types';
 import crypto from 'crypto';
 
 export class RuleEngine {
-  public createFinding(detectorId: string, rule: Rule, evidence: Evidence, confidence: number): ScanFinding {
+  public createFinding(detectorId: string, rule: Rule, evidence: Evidence, confidence: number): any {
+    // Deprecated: BaseDetector.buildFinding is now the authoritative finding constructor.
+    // Keeping this loosely typed to avoid breaking legacy code that hasn't migrated to BaseDetector.
     return {
       id: crypto.randomUUID(),
       ruleId: rule.id,
-      detector: detectorId,
+      detectorId: detectorId,
       title: rule.title,
       description: rule.description,
       severity: rule.severity,

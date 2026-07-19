@@ -28,12 +28,19 @@ const sha1Rule: Rule = {
 export class DeprecatedHashDetector extends BaseDetector {
   id = 'detector-hash-deprecated';
   name = 'Deprecated Hash Algorithm Detector';
+  version = '1.1.0';
+  category = 'Hash Functions';
+  supportedLanguages = ['javascript', 'typescript', 'python', 'java', 'go', 'csharp'];
+  supportedExtensions = ['.js', '.ts', '.py', '.java', '.go', '.cs'];
+
   metadata: DetectorMetadata = {
     version: '1.1.0',
     author: 'NovoCrypt Security Team',
     ruleVersion: 'v2',
     category: 'Hash Functions',
     documentationUrl: 'https://docs.novocrypt.app/detectors/hash',
+    supportedLanguages: this.supportedLanguages,
+    supportedExtensions: this.supportedExtensions
   };
   supportedTargets: TargetType[] = ['code', 'config'];
 
@@ -55,6 +62,7 @@ export class DeprecatedHashDetector extends BaseDetector {
             snippet: line.trim().substring(0, 200), // Prevent massive log lines
             matchedPattern: 'Explicit MD5 API Invocation',
             language: context.language,
+            qualityScore: 90
           };
           
           findings.push(this.buildFinding(
@@ -71,6 +79,7 @@ export class DeprecatedHashDetector extends BaseDetector {
             snippet: line.trim().substring(0, 200),
             matchedPattern: 'Explicit SHA-1 API Invocation',
             language: context.language,
+            qualityScore: 90
           };
 
           findings.push(this.buildFinding(

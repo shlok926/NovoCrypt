@@ -12,9 +12,16 @@ export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export interface Evidence {
   file?: string;
   line?: number;
+  column?: number;
   snippet: string;
   matchedPattern: string;
   language?: string;
+  qualityScore: number;
+}
+
+export interface ConfidenceExplanation {
+  level: 'Critical' | 'High' | 'Medium' | 'Low';
+  reason: string;
 }
 
 export interface Rule {
@@ -33,11 +40,14 @@ export interface Rule {
 export interface ScanFinding {
   id: string; // uuid
   ruleId: string;
-  detector: string;
+  detectorId: string;
+  detectorVersion: string;
   title: string;
   description: string;
+  category: string;
   severity: Severity;
   confidence: number; // 0-100%
+  confidenceExplanation: ConfidenceExplanation;
   evidence: Evidence;
   algorithm?: string;
   keySize?: number;
@@ -45,6 +55,15 @@ export interface ScanFinding {
   quantumRisk: string;
   recommendation: string;
   references: string[];
+  fingerprint: string;
+  timestamp: string;
+}
+
+export interface DetectorHealth {
+  status: 'healthy' | 'degraded' | 'failed';
+  errorCount: number;
+  lastError?: string;
+  averageRuntimeMs: number;
 }
 
 export interface DetectorMetadata {
@@ -53,14 +72,21 @@ export interface DetectorMetadata {
   ruleVersion: string;
   category: string;
   documentationUrl: string;
+  supportedLanguages: string[];
+  supportedExtensions: string[];
 }
 
 export interface CryptoDetector {
   id: string;
   name: string;
+  version: string;
+  category: string;
+  supportedLanguages: string[];
+  supportedExtensions: string[];
   metadata: DetectorMetadata;
   supportedTargets: TargetType[];
   detect(context: ScanContext): Promise<ScanFinding[]>;
+  health(): DetectorHealth;
 }
 
 export interface ScanMetrics {

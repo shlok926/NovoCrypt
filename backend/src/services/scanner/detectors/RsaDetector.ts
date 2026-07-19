@@ -17,12 +17,19 @@ const rsa2048Rule: Rule = {
 export class RsaDetector extends BaseDetector {
   id = 'detector-rsa';
   name = 'RSA Key & Implementation Detector';
+  version = '1.1.0';
+  category = 'Asymmetric Cryptography';
+  supportedLanguages = ['javascript', 'typescript', 'python', 'java', 'go'];
+  supportedExtensions = ['.js', '.ts', '.py', '.java', '.go'];
+  
   metadata: DetectorMetadata = {
     version: '1.1.0',
     author: 'NovoCrypt Security Team',
     ruleVersion: 'v2',
     category: 'Asymmetric Cryptography',
     documentationUrl: 'https://docs.novocrypt.app/detectors/rsa',
+    supportedLanguages: this.supportedLanguages,
+    supportedExtensions: this.supportedExtensions
   };
   supportedTargets: TargetType[] = ['code', 'config'];
 
@@ -44,6 +51,7 @@ export class RsaDetector extends BaseDetector {
             snippet: line.trim().substring(0, 200),
             matchedPattern: 'Explicit RSA (1024/2048) Key Generation',
             language: context.language,
+            qualityScore: 90
           };
           
           findings.push(this.buildFinding(
