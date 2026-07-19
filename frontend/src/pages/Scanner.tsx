@@ -73,10 +73,10 @@ const Scanner: React.FC = () => {
           <div>
             <h1 className="text-4xl font-bold text-white mb-2 flex items-center">
               <Shield className="w-8 h-8 mr-3 text-blue-500" />
-              Security Scanner
+              Security Workspace
             </h1>
             <p className="text-lg text-slate-400">
-              Enterprise-grade cryptography discovery and quantum risk analysis.
+              Your centralized command center for cryptographic discovery and post-quantum migration.
             </p>
           </div>
           {scanResult && (
@@ -256,7 +256,7 @@ const Scanner: React.FC = () => {
                 {/* Findings Table */}
                 <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-lg overflow-hidden">
                   <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
-                    <h2 className="text-lg font-semibold text-white">Security Findings</h2>
+                    <h2 className="text-lg font-semibold text-white">Security Workspace Findings</h2>
                     <div className="flex space-x-2 text-sm">
                       <span className="flex items-center text-red-400"><XCircle className="w-4 h-4 mr-1"/> {scanResult.metrics.critical} Critical</span>
                       <span className="flex items-center text-orange-400"><AlertTriangle className="w-4 h-4 mr-1"/> {scanResult.metrics.high} High</span>

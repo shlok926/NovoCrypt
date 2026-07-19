@@ -53,7 +53,7 @@ export const Navbar: React.FC = () => {
   const toolsMenu: DropdownMenu = {
     label: 'Tools',
     items: [
-      { label: 'Threat Scanner', href: '/scanner' },
+      { label: 'Security Workspace', href: '/scanner' },
       { label: 'Compliance Checker', href: '/compliance' },
       { label: 'Migration Planner', href: '/migration-planner' },
       { label: 'QuantumBot', href: '/quantum-bot' },
