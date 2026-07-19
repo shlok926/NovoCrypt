@@ -33,14 +33,17 @@ export class RsaDetector implements CryptoDetector {
     if (context.targetType === 'code' && typeof context.target === 'string') {
       const lines = context.target.split('\n');
       
+      // Production-grade heuristics targeting RSA key generation in Node.js, Java, Python, Go
+      const rsaRegex = /(crypto\.generateKeyPair(?:Sync)?\(['"`]rsa['"`].*?modulusLength:\s*(1024|2048)|KeyPairGenerator\.getInstance\(['"`]RSA['"`]\).*?initialize\((1024|2048)\)|rsa\.generate_private_key\([^)]*key_size=(1024|2048)|rsa\.GenerateKey\([^,]+,\s*(1024|2048)\))/i;
+
       lines.forEach((line, index) => {
-        // Simulated AST Node Match: Looking for RSA key generation or usage
-        if (line.includes('RSA') && line.includes('2048')) {
+        const match = rsaRegex.exec(line);
+        if (match) {
           const evidence: Evidence = {
             file: context.fileName,
             line: index + 1,
-            snippet: line.trim(),
-            matchedPattern: 'RSA.*2048',
+            snippet: line.trim().substring(0, 200),
+            matchedPattern: 'Explicit RSA (1024/2048) Key Generation',
             language: context.language,
           };
           
@@ -48,7 +51,7 @@ export class RsaDetector implements CryptoDetector {
             this.id,
             rsa2048Rule,
             evidence,
-            70 // 70% confidence for regex-based match
+            95 // High confidence due to matching exact key size in API arguments
           ));
         }
       });

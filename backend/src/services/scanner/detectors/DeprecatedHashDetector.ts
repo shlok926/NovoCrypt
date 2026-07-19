@@ -42,15 +42,19 @@ export class DeprecatedHashDetector implements CryptoDetector {
     const findings: ScanFinding[] = [];
     
     if (context.targetType === 'code' && typeof context.target === 'string') {
-      const lines = context.target.split('\n');
+      const lines = context.target.split('\n'); // TODO: Replace with read stream for massive files to prevent OOM
       
+      // Production-grade heuristics targeting explicit cryptography API usage
+      const md5Regex = /(crypto\.createHash\(['"`]md5['"`]\)|MessageDigest\.getInstance\(['"`]MD5['"`]\)|hashlib\.md5\(|System\.Security\.Cryptography\.MD5\.Create\(\))/i;
+      const sha1Regex = /(crypto\.createHash\(['"`]sha1['"`]\)|MessageDigest\.getInstance\(['"`]SHA-1['"`]\)|hashlib\.sha1\(|System\.Security\.Cryptography\.SHA1\.Create\(\))/i;
+
       lines.forEach((line, index) => {
-        if (line.includes('MD5') || line.includes('md5')) {
+        if (md5Regex.test(line)) {
           const evidence: Evidence = {
             file: context.fileName,
             line: index + 1,
-            snippet: line.trim(),
-            matchedPattern: 'MD5|md5',
+            snippet: line.trim().substring(0, 200), // Prevent massive log lines
+            matchedPattern: 'Explicit MD5 API Invocation',
             language: context.language,
           };
           
@@ -58,16 +62,16 @@ export class DeprecatedHashDetector implements CryptoDetector {
             this.id,
             md5Rule,
             evidence,
-            70 // regex match
+            95 // High confidence due to API boundary match
           ));
         }
 
-        if (line.includes('SHA1') || line.includes('sha1')) {
+        if (sha1Regex.test(line)) {
           const evidence: Evidence = {
             file: context.fileName,
             line: index + 1,
-            snippet: line.trim(),
-            matchedPattern: 'SHA1|sha1',
+            snippet: line.trim().substring(0, 200),
+            matchedPattern: 'Explicit SHA-1 API Invocation',
             language: context.language,
           };
 
@@ -75,7 +79,7 @@ export class DeprecatedHashDetector implements CryptoDetector {
             this.id,
             sha1Rule,
             evidence,
-            70
+            95
           ));
         }
       });
