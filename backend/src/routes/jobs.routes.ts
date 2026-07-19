@@ -21,7 +21,13 @@ router.get('/', async (req: Request, res: Response) => {
       }
     });
 
-    res.json({ success: true, data: jobs });
+    // Do not send massive result payloads in list queries
+    const sanitizedJobs = jobs.map(job => {
+      const { resultPayload, ...rest } = job;
+      return rest;
+    });
+
+    res.json({ success: true, data: sanitizedJobs });
   } catch (error) {
     console.error('Fetch jobs error:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch jobs' });
@@ -43,7 +49,10 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
 
-    res.json({ success: true, data: job });
+    // Exclude large result payloads from status polling
+    const { resultPayload, ...safeJob } = job;
+
+    res.json({ success: true, data: safeJob });
   } catch (error) {
     console.error('Fetch job error:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch job' });
