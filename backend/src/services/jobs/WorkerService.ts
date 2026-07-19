@@ -15,6 +15,7 @@ export class WorkerService {
   private static scannerWorker: Worker;
   private static correlationWorker: Worker;
   private static migrationWorker: Worker;
+  private static reportsWorker: Worker;
 
   static initializeWorkers() {
     this.scannerWorker = new Worker(
@@ -171,6 +172,64 @@ export class WorkerService {
       { connection, concurrency: 2 }
     );
     
+    this.reportsWorker = new Worker(
+      'reports',
+      async (bullJob: BullJob) => {
+        const { dbJobId, payload } = bullJob.data;
+        const dbJob = await prisma.job.findUnique({ where: { id: dbJobId } });
+        
+        await QueueService.markJobStarted(dbJobId);
+        await QueueService.updateJobProgress(dbJobId, 10, 'Initializing Report Engine');
+
+        try {
+          // Dynamic import to avoid circular dependencies if any
+          const { reportEngine } = await import('../reporting-engine/index');
+          
+          await QueueService.updateJobProgress(dbJobId, 30, 'Fetching Assessment Data');
+          
+          let startDate = new Date();
+          const { dateRange, modules, userId, organizationName } = payload;
+          if (dateRange === '7d') startDate.setDate(startDate.getDate() - 7);
+          else if (dateRange === '30d') startDate.setDate(startDate.getDate() - 30);
+          else if (dateRange === '90d') startDate.setDate(startDate.getDate() - 90);
+          else startDate = new Date(0);
+
+          await QueueService.updateJobProgress(dbJobId, 50, 'Building PDF Sections');
+          
+          const buffer = await reportEngine.generateReportBuffer({
+            userId,
+            organizationName: organizationName || 'NovoCrypt Customer',
+            reportPeriod: `Last ${dateRange.replace('d', ' Days')}`,
+            startDate,
+            endDate: new Date(),
+            enabledModules: modules,
+            cache: new Map()
+          });
+
+          await QueueService.updateJobProgress(dbJobId, 80, 'Saving Report File');
+          
+          // Generate a report record or save buffer to storage.
+          // For now, we will store the base64 encoded buffer in the Job's result payload
+          // In a real system, we'd upload this to S3 and save the URL.
+          const base64Pdf = buffer.toString('base64');
+          
+          await prisma.job.update({
+            where: { id: dbJobId },
+            data: { resultPayload: { base64Pdf, filename: `Executive-Security-Report-${new Date().toISOString().split('T')[0]}.pdf` } }
+          });
+
+          await QueueService.updateJobProgress(dbJobId, 100, 'Report Ready');
+          await QueueService.markJobCompleted(dbJobId);
+          return { success: true };
+        } catch (error) {
+          console.error(`Report Job ${dbJobId} failed:`, error);
+          await QueueService.markJobFailed(dbJobId, error instanceof Error ? error.message : 'Unknown error');
+          throw error;
+        }
+      },
+      { connection, concurrency: 2 } // CPU intensive
+    );
+
     console.log('👷 Workers initialized successfully.');
   }
 }

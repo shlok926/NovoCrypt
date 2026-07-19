@@ -22,6 +22,8 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({ isOp
   );
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -40,10 +42,12 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({ isOp
 
     try {
       setIsGenerating(true);
+      setProgress(0);
+      setStage('Queuing report generation...');
       setError(null);
       
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/reports/export-executive', {
+      const queueResponse = await fetch('http://localhost:5000/api/reports/export-executive', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -52,20 +56,65 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({ isOp
         body: JSON.stringify({ modules: selectedModules, dateRange })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate report');
+      if (!queueResponse.ok) {
+        const errData = await queueResponse.json();
+        throw new Error(errData.message || 'Failed to queue report');
       }
 
-      // Handle file download
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Executive-Security-Report-${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const queueData = await queueResponse.json();
+      const jobId = queueData.data.jobId;
+
+      // Poll job status
+      let jobCompleted = false;
+      while (!jobCompleted) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const statusResponse = await fetch(`http://localhost:5000/api/jobs/${jobId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!statusResponse.ok) throw new Error('Failed to check report status');
+        
+        const statusData = await statusResponse.json();
+        const job = statusData.data;
+
+        setProgress(job.progress || 0);
+        setStage(job.currentStage || 'Processing...');
+
+        if (job.jobStatus === 'failed') {
+          throw new Error(job.errorMessage || 'Report generation failed');
+        }
+
+        if (job.jobStatus === 'completed') {
+          jobCompleted = true;
+          setStage('Downloading PDF...');
+          
+          // Download the file
+          const downloadResponse = await fetch(`http://localhost:5000/api/reports/download/${jobId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (!downloadResponse.ok) throw new Error('Failed to download report');
+          
+          const blob = await downloadResponse.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          // Look for filename in content-disposition header if possible, otherwise fallback
+          const disposition = downloadResponse.headers.get('Content-Disposition');
+          let filename = `Executive-Security-Report-${new Date().toISOString().split('T')[0]}.pdf`;
+          if (disposition && disposition.indexOf('filename=') !== -1) {
+            const matches = /filename="([^"]+)"/.exec(disposition);
+            if (matches != null && matches[1]) filename = matches[1];
+          }
+          a.download = filename;
+          
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        }
+      }
 
       setSuccess(true);
       setTimeout(() => {
@@ -172,6 +221,23 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({ isOp
                 })}
               </div>
             </div>
+
+            {isGenerating && (
+              <div className="bg-slate-950 rounded-lg p-4 border border-blue-500/30">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-blue-400">{stage}</span>
+                  <span className="text-sm text-slate-400">{progress}%</span>
+                </div>
+                <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
+                  <motion.div 
+                    className="bg-blue-500 h-2 rounded-full" 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ duration: 0.5 }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mt-8 flex justify-end gap-3">

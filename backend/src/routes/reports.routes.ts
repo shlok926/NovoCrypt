@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
+import { QueueService } from '../services/jobs/QueueService';
 import { prisma } from '../config/database';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
@@ -167,24 +168,60 @@ reportsRouter.post('/export-executive', requireAuth, async (req: Request, res: R
     // Fetch user context
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
-    const buffer = await reportEngine.generateReportBuffer({
-      userId,
-      organizationName: 'NovoCrypt Customer',
-      reportPeriod: `Last ${dateRange.replace('d', ' Days')}`,
-      startDate,
-      endDate: new Date(),
-      enabledModules: modules,
-      cache: new Map()
+    // Enqueue the report generation job instead of blocking the event loop
+    const job = await QueueService.enqueue(
+      'reports',
+      'executive-report',
+      { 
+        modules, 
+        dateRange, 
+        userId,
+        organizationName: 'NovoCrypt Customer'
+      },
+      { requestedByUserId: userId }
+    );
+
+    res.json({ success: true, message: 'Report generation queued', data: { jobId: job.id, status: 'queued' } });
+  } catch (error) {
+    console.error('Failed to queue executive report:', error);
+    res.status(500).json({ success: false, message: 'REPORT_WORKFLOW_FAILED', error: error instanceof Error ? error.message : 'Unknown error' });
+  }
+});
+
+// Download Generated Report
+reportsRouter.get('/download/:jobId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { jobId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const job = await prisma.job.findFirst({
+      where: { id: jobId, requestedByUserId: userId }
     });
 
-    const dateStr = new Date().toISOString().split('T')[0];
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    if (job.jobStatus !== 'completed' || !job.resultPayload) {
+      return res.status(400).json({ success: false, message: 'Report is not ready yet' });
+    }
+
+    const payload = job.resultPayload as any;
+    if (!payload.base64Pdf) {
+      return res.status(500).json({ success: false, message: 'Report data is corrupted' });
+    }
+
+    const buffer = Buffer.from(payload.base64Pdf, 'base64');
+    const filename = payload.filename || 'Executive-Security-Report.pdf';
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="Executive-Security-Report-${dateStr}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
   } catch (error) {
-    console.error('Failed to generate executive report:', error);
-    res.status(500).json({ success: false, message: 'Failed to generate report' });
+    console.error('Failed to download executive report:', error);
+    res.status(500).json({ success: false, message: 'Failed to download report' });
   }
 });
 
