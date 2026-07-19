@@ -16,6 +16,7 @@ import chatbotRoutes from './chatbot.routes';
 import assetsRoutes from './assets.routes';
 import jobsRoutes from './jobs.routes';
 import workflowsRoutes from './workflows.routes';
+import correlationsRoutes from './correlations.routes';
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.use('/chatbot', chatbotRoutes);
 router.use('/assets', assetsRoutes);
 router.use('/jobs', jobsRoutes);
 router.use('/workflows', workflowsRoutes);
+router.use('/correlations', correlationsRoutes);
 
 router.get('/health', (_req, res) => {
   res.json({

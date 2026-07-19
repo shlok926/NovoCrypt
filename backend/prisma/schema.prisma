@@ -466,6 +466,110 @@ model WorkflowStepExecution {
   @@map("workflow_step_executions")
 }
 
+// ---------------------------------------------------------
+// THREAT CORRELATION ENGINE DOMAIN
+// ---------------------------------------------------------
+
+model ThreatAdvisory {
+  id               String         @id @default(uuid()) @db.Uuid
+  source           String         @db.VarChar(100) // NIST, CISA, MITRE, Vendor
+  advisoryId       String         @map("advisory_id") @db.VarChar(100) // e.g. CVE-2024-XXXX
+  title            String         @db.VarChar(255)
+  description      String         @db.Text
+  severity         String         @db.VarChar(50)
+  publishedAt      DateTime       @map("published_at")
+  references       Json           @db.JsonB
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  matches          ThreatMatch[]
+
+  @@unique([source, advisoryId])
+  @@map("threat_advisories")
+}
+
+model ThreatRule {
+  id               String         @id @default(uuid()) @db.Uuid
+  ruleId           String         @unique @map("rule_id") @db.VarChar(100) // e.g. RULE-PQC-001
+  version          String         @default("1.0.0") @db.VarChar(20)
+  title            String         @db.VarChar(255)
+  description      String         @db.Text
+  severity         String         @db.VarChar(50) // critical, high, medium, low
+  priority         Int            @default(0) // Higher is more urgent
+  condition        Json           @db.JsonB // Engine logic
+  recommendedAction String        @map("recommended_action") @db.Text
+  deprecationStatus String?       @map("deprecation_status") @db.VarChar(50) // e.g. 'deprecated', 'disallowed'
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  matches          ThreatMatch[]
+
+  @@map("threat_rules")
+}
+
+model ThreatCorrelation {
+  id                String         @id @default(uuid()) @db.Uuid
+  assetId           String         @map("asset_id") @db.Uuid
+  snapshotId        String?        @map("snapshot_id") @db.Uuid
+  workflowRunId     String?        @map("workflow_run_id") @db.Uuid
+  jobId             String?        @map("job_id") @db.Uuid
+  
+  status            String         @db.VarChar(50) // 'running', 'completed', 'failed'
+  overallSeverity   String?        @map("overall_severity") @db.VarChar(50)
+  overallPriority   Int            @default(0) @map("overall_priority")
+  overallConfidence Int            @default(0) @map("overall_confidence")
+  
+  correlatedAt      DateTime       @default(now()) @map("correlated_at")
+  createdAt         DateTime       @default(now()) @map("created_at")
+
+  matches           ThreatMatch[]
+  recommendations   ThreatRecommendation[]
+
+  @@index([assetId, correlatedAt(sort: Desc)])
+  @@map("threat_correlations")
+}
+
+model ThreatMatch {
+  id               String         @id @default(uuid()) @db.Uuid
+  correlationId    String         @map("correlation_id") @db.Uuid
+  algorithm        String         @db.VarChar(100)
+  algorithmFamily  String?        @map("algorithm_family") @db.VarChar(100)
+  findingId        String?        @map("finding_id") @db.VarChar(100)
+  threatSource     String         @map("threat_source") @db.VarChar(100) // NIST, Internal Rule, etc.
+  advisoryId       String?        @map("advisory_id") @db.Uuid
+  ruleId           String?        @map("rule_id") @db.Uuid
+  confidence       Int            @default(100)
+  severity         String         @db.VarChar(50)
+  impact           String?        @db.Text
+  affectedComponent String?       @map("affected_component") @db.VarChar(255)
+  evidence         Json?          @db.JsonB
+  
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  correlation      ThreatCorrelation @relation(fields: [correlationId], references: [id], onDelete: Cascade)
+  advisory         ThreatAdvisory?   @relation(fields: [advisoryId], references: [id], onDelete: SetNull)
+  rule             ThreatRule?       @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  @@map("threat_matches")
+}
+
+model ThreatRecommendation {
+  id                     String         @id @default(uuid()) @db.Uuid
+  correlationId          String         @map("correlation_id") @db.Uuid
+  recommendationType     String         @map("recommendation_type") @db.VarChar(100) // e.g. 'upgrade_algorithm', 'rotate_key'
+  priority               Int            @default(0)
+  title                  String         @db.VarChar(255)
+  description            String         @db.Text
+  estimatedEffort        String         @map("estimated_effort") @db.VarChar(50) // 'Low', 'Medium', 'High'
+  estimatedRiskReduction Int            @map("estimated_risk_reduction")
+  references             Json?          @db.JsonB
+  
+  createdAt              DateTime       @default(now()) @map("created_at")
+
+  correlation            ThreatCorrelation @relation(fields: [correlationId], references: [id], onDelete: Cascade)
+
+  @@map("threat_recommendations")
+}
+
 // FEATURE 9: COMMUNITY THREADS & REPLIES
 model CommunityThread {
   id        String   @id @default(uuid()) @db.Uuid

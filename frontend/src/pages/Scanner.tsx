@@ -3,7 +3,8 @@ import { assetApi, Asset, AssetEvent } from '@/services/assets';
 import { scannerApi, ScanResult, ScanFinding } from '@/services/scanner';
 import { jobApi, Job } from '@/services/jobs';
 import { workflowApi, Workflow, WorkflowRun } from '@/services/workflows';
-import { Shield, Search, FileText, CheckCircle, AlertTriangle, XCircle, Terminal, Download, Globe, Server, FileCode, ArrowRight, Activity, Clock, Plus, FolderGit2, Trash2, RefreshCw, Layers, GitMerge, CircleDashed } from 'lucide-react';
+import { correlationApi, ThreatCorrelation } from '@/services/correlations';
+import { Shield, Search, FileText, CheckCircle, AlertTriangle, XCircle, Terminal, Download, Globe, Server, FileCode, ArrowRight, Activity, Clock, Plus, FolderGit2, Trash2, RefreshCw, Layers, GitMerge, CircleDashed, BrainCircuit } from 'lucide-react';
 
 const Scanner: React.FC = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -20,7 +21,7 @@ const Scanner: React.FC = () => {
   const [activeFinding, setActiveFinding] = useState<ScanFinding | null>(null);
 
   // Timeline State
-  const [activeTab, setActiveTab] = useState<'findings' | 'timeline' | 'jobs'>('findings');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'findings' | 'jobs' | 'intelligence'>('timeline');
   const [timelineEvents, setTimelineEvents] = useState<AssetEvent[]>([]);
 
   // Jobs State
@@ -31,6 +32,9 @@ const Scanner: React.FC = () => {
   const [activeWorkflowRunId, setActiveWorkflowRunId] = useState<string | null>(null);
   const [activeWorkflowRun, setActiveWorkflowRun] = useState<WorkflowRun | null>(null);
   const [availableWorkflows, setAvailableWorkflows] = useState<Workflow[]>([]);
+
+  // Threat Correlation State
+  const [correlations, setCorrelations] = useState<ThreatCorrelation[]>([]);
 
   useEffect(() => {
     fetchAssets();
@@ -151,12 +155,21 @@ const Scanner: React.FC = () => {
     }
   };
 
+  const fetchCorrelations = async (assetId: string) => {
+    try {
+      const res = await correlationApi.getAssetCorrelations(assetId);
+      setCorrelations(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleSelectAsset = async (asset: Asset) => {
     setSelectedAsset(asset);
+    setActiveTab('timeline');
+    fetchTimeline(asset.id);
+    fetchCorrelations(asset.id);
     setScanResult(null);
-    setActiveFinding(null);
-    setActiveTab('findings');
-    await fetchTimeline(asset.id);
   };
 
   return (
@@ -328,6 +341,12 @@ const Scanner: React.FC = () => {
                   >
                     <GitMerge className="w-4 h-4 mr-2" /> Workflow Pipeline
                   </button>
+                  <button 
+                    onClick={() => setActiveTab('intelligence')}
+                    className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors flex items-center ${activeTab === 'intelligence' ? 'border-red-500 text-red-400' : 'border-transparent text-slate-400 hover:text-slate-300'}`}
+                  >
+                    <BrainCircuit className="w-4 h-4 mr-2" /> Threat Intelligence
+                  </button>
                 </div>
 
                 {/* Workflow Tab */}
@@ -437,6 +456,88 @@ const Scanner: React.FC = () => {
                             <p className="text-slate-400 text-sm mb-2">{event.description}</p>
                             <div className="flex items-center space-x-3 text-xs">
                               <span className="text-slate-500 uppercase tracking-wider">{event.sourceModule}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Threat Intelligence Tab */}
+                {activeTab === 'intelligence' && (
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-lg p-6 animate-in fade-in slide-in-from-bottom-4">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-semibold text-white flex items-center">
+                        <BrainCircuit className="w-5 h-5 mr-2 text-red-500" /> Enterprise Threat Correlation
+                      </h3>
+                    </div>
+
+                    {correlations.length === 0 ? (
+                      <div className="text-center text-slate-500 py-12 bg-slate-950/50 rounded-lg border border-slate-800/50">
+                        <BrainCircuit className="w-12 h-12 text-slate-700 mx-auto mb-3" />
+                        <p>No threat intelligence correlated for this asset yet.</p>
+                        <p className="text-sm mt-1">Run an orchestration pipeline to generate intelligence.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-8">
+                        {correlations.map(correlation => (
+                          <div key={correlation.id} className="bg-slate-950 border border-slate-800 rounded-lg overflow-hidden">
+                            <div className="p-4 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+                              <div>
+                                <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Correlation Run</span>
+                                <h4 className="text-white text-sm font-medium mt-0.5">{new Date(correlation.correlatedAt).toLocaleString()}</h4>
+                              </div>
+                              <div className="flex gap-3">
+                                <div className="text-right">
+                                  <span className="text-xs text-slate-500 uppercase">Severity</span>
+                                  <div className={`text-sm font-bold capitalize ${correlation.overallSeverity === 'critical' ? 'text-red-500' : correlation.overallSeverity === 'high' ? 'text-orange-500' : 'text-yellow-500'}`}>
+                                    {correlation.overallSeverity}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-xs text-slate-500 uppercase">Priority</span>
+                                  <div className="text-sm font-bold text-white">{correlation.overallPriority}/100</div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="p-5">
+                              <h5 className="text-sm font-semibold text-slate-300 mb-3 border-b border-slate-800 pb-2">Identified Threats</h5>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                {correlation.matches.map(match => (
+                                  <div key={match.id} className="bg-slate-900 border border-slate-800 rounded-lg p-3">
+                                    <div className="flex justify-between items-start mb-2">
+                                      <span className="text-red-400 font-mono text-sm">{match.algorithmFamily}</span>
+                                      <span className="text-xs bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded">{match.severity}</span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 mb-2">{match.impact || (match.rule?.description)}</p>
+                                    <div className="text-xs text-slate-500 flex justify-between border-t border-slate-800 pt-2 mt-2">
+                                      <span>Source: {match.threatSource}</span>
+                                      <span>Confidence: {match.confidence}%</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <h5 className="text-sm font-semibold text-slate-300 mb-3 border-b border-slate-800 pb-2">Recommended Actions</h5>
+                              <div className="space-y-3">
+                                {correlation.recommendations.map(rec => (
+                                  <div key={rec.id} className="flex gap-4 items-start bg-blue-900/10 border border-blue-900/30 rounded-lg p-4">
+                                    <div className="bg-blue-500/20 p-2 rounded shrink-0">
+                                      <Shield className="w-5 h-5 text-blue-400" />
+                                    </div>
+                                    <div>
+                                      <h6 className="text-white text-sm font-semibold">{rec.title}</h6>
+                                      <p className="text-slate-400 text-xs mt-1">{rec.description}</p>
+                                      <div className="flex gap-4 mt-3">
+                                        <span className="text-xs text-slate-500">Effort: <strong className="text-slate-300">{rec.estimatedEffort}</strong></span>
+                                        <span className="text-xs text-slate-500">Risk Reduction: <strong className="text-emerald-400">+{rec.estimatedRiskReduction} pts</strong></span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         ))}

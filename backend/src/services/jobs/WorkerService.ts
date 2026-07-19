@@ -4,6 +4,7 @@ import { QueueService } from './QueueService';
 import { scannerEngine } from '../scanner';
 import { prisma } from '../../config/database';
 import { AssetActivityService } from '../assets/AssetActivityService';
+import { ThreatCorrelationEngine } from '../threats/ThreatCorrelationEngine';
 
 const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
   maxRetriesPerRequest: null,
@@ -11,6 +12,7 @@ const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379'
 
 export class WorkerService {
   private static scannerWorker: Worker;
+  private static correlationWorker: Worker;
 
   static initializeWorkers() {
     this.scannerWorker = new Worker(
@@ -112,6 +114,33 @@ export class WorkerService {
     this.scannerWorker.on('failed', (job, err) => {
       console.error(`${job?.id} has failed with ${err.message}`);
     });
+
+    this.correlationWorker = new Worker(
+      'correlation',
+      async (bullJob: BullJob) => {
+        const { dbJobId, payload } = bullJob.data;
+        const dbJob = await prisma.job.findUnique({ where: { id: dbJobId } });
+        
+        await QueueService.markJobStarted(dbJobId);
+        await QueueService.updateJobProgress(dbJobId, 20, 'Loading Threat Intelligence');
+
+        try {
+          if (!dbJob?.assetId) throw new Error('assetId is required for Threat Correlation');
+          
+          await QueueService.updateJobProgress(dbJobId, 50, 'Evaluating Rules & Generating Matches');
+          await ThreatCorrelationEngine.runCorrelation(dbJob.assetId, payload.workflowRunId, dbJobId);
+
+          await QueueService.updateJobProgress(dbJobId, 90, 'Publishing Recommendations');
+          await QueueService.markJobCompleted(dbJobId);
+          return { success: true };
+        } catch (error) {
+          console.error(`Correlation Job ${dbJobId} failed:`, error);
+          await QueueService.markJobFailed(dbJobId, error instanceof Error ? error.message : 'Unknown error');
+          throw error;
+        }
+      },
+      { connection, concurrency: 2 }
+    );
     
     console.log('👷 Workers initialized successfully.');
   }
