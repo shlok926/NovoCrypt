@@ -7,9 +7,18 @@ import { AssetActivityService } from '../assets/AssetActivityService';
 import { ThreatCorrelationEngine } from '../threats/ThreatCorrelationEngine';
 import { MigrationEngine } from '../migrations/MigrationEngine';
 import { TargetAcquisitionService } from '../scanner/acquisition/TargetAcquisitionService';
+import { Logger, TelemetryService, auditService } from '../observability';
+
+const workerLogger = new Logger({ component: 'WorkerService' });
 
 const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
   maxRetriesPerRequest: null,
+  retryStrategy(times) {
+    if (times === 1 || times % 10 === 0) {
+      console.error(`\n🚨 [Redis Worker] Cannot connect to Redis (Attempt ${times}). \n👉 Make sure Redis is running on port 6379!\n`);
+    }
+    return Math.min(times * 1000, 10000); // Backoff up to 10 seconds
+  }
 });
 
 export class WorkerService {
@@ -22,7 +31,13 @@ export class WorkerService {
     this.scannerWorker = new Worker(
       'scanner',
       async (bullJob: BullJob) => {
-        const { dbJobId, payload } = bullJob.data;
+        const { dbJobId, payload, traceId = Logger.generateTraceId() } = bullJob.data;
+        const jobLogger = workerLogger.child({ traceId, jobId: dbJobId, worker: 'scannerWorker' });
+        const jobStartTime = performance.now();
+        
+        jobLogger.info('Scanner worker started processing job');
+        auditService.recordEvent({ traceId, jobId: dbJobId, stage: 'Worker Assignment', status: 'success' });
+        TelemetryService.recordCounter('worker.job.started', 1, { queue: 'scanner' });
         
         await QueueService.markJobStarted(dbJobId);
         await QueueService.updateJobProgress(dbJobId, 10, 'Initializing Engine');
@@ -45,21 +60,32 @@ export class WorkerService {
           let result;
 
           if (payload.targetType === 'git' || payload.targetType === 'local') {
-            // Enterprise Target Acquisition Flow
+            auditService.recordEvent({ traceId, jobId: dbJobId, stage: 'Repository Acquisition', status: 'in_progress' });
+            const acqStart = performance.now();
             const acquisition = new TargetAcquisitionService();
             const { files, cleanup } = await acquisition.acquire(dbJobId, payload.targetType, payload.target);
+            TelemetryService.recordHistogram('worker.acquisition.duration.ms', performance.now() - acqStart);
+            auditService.recordEvent({ traceId, jobId: dbJobId, stage: 'Repository Acquisition', status: 'success' });
+            
             try {
-              result = await scannerEngine.runEnterpriseScan(files, 'code');
+              auditService.recordEvent({ traceId, jobId: dbJobId, stage: 'Detection Started', status: 'in_progress' });
+              result = await scannerEngine.runEnterpriseScan(files, 'code', traceId);
+              auditService.recordEvent({ traceId, jobId: dbJobId, stage: 'Detection Completed', status: 'success' });
             } finally {
+              const cleanupStart = performance.now();
               await cleanup();
+              TelemetryService.recordHistogram('worker.cleanup.duration.ms', performance.now() - cleanupStart);
+              auditService.recordEvent({ traceId, jobId: dbJobId, stage: 'Cleanup Completed', status: 'success' });
             }
           } else {
             // Fallback for original raw-string payloads
+            auditService.recordEvent({ traceId, jobId: dbJobId, stage: 'Detection Started', status: 'in_progress' });
             result = await scannerEngine.runScan({
               targetType: payload.targetType,
               target: payload.target,
               fileName: payload.fileName,
-            });
+            }, traceId);
+            auditService.recordEvent({ traceId, jobId: dbJobId, stage: 'Detection Completed', status: 'success' });
           }
 
           await QueueService.updateJobProgress(dbJobId, 80, 'Finalizing Results');
@@ -107,9 +133,18 @@ export class WorkerService {
           }
 
           await QueueService.markJobCompleted(dbJobId);
+          
+          const totalDuration = performance.now() - jobStartTime;
+          TelemetryService.recordHistogram('worker.job.duration.ms', totalDuration, { queue: 'scanner', status: 'success' });
+          jobLogger.info('Scanner job completed successfully', { durationMs: totalDuration });
+          
           return result;
         } catch (error) {
-          console.error(`Job ${dbJobId} failed:`, error);
+          const totalDuration = performance.now() - jobStartTime;
+          TelemetryService.recordHistogram('worker.job.duration.ms', totalDuration, { queue: 'scanner', status: 'failure' });
+          TelemetryService.recordCounter('worker.job.failed', 1, { queue: 'scanner' });
+          jobLogger.error('Scanner job failed', error);
+          auditService.recordEvent({ traceId, jobId: dbJobId, stage: 'Failed', status: 'failure', details: error });
           await QueueService.handleJobException(dbJobId, error, bullJob);
           
           if (dbJob?.assetId) {

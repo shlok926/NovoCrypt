@@ -4,9 +4,14 @@ import { prisma } from '../../config/database';
 import { AssetActivityService } from '../assets/AssetActivityService';
 import { WorkflowEngine } from '../workflows/WorkflowEngine';
 
-// Redis connection string (should come from env in production)
 const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
   maxRetriesPerRequest: null,
+  retryStrategy(times) {
+    if (times === 1 || times % 10 === 0) {
+      console.error(`\n🚨 [Redis] Cannot connect to Redis (Attempt ${times}). \n👉 If you are running locally, make sure Redis is installed and running on port 6379.\n👉 Windows Users: Use WSL or Docker (docker run -p 6379:6379 -d redis)\n`);
+    }
+    return Math.min(times * 1000, 10000); // Backoff up to 10 seconds to prevent console spam
+  }
 });
 
 export type QueueName = 'scanner' | 'reports' | 'compliance' | 'ai' | 'correlation' | 'migration';

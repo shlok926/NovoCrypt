@@ -1,6 +1,7 @@
 import { CryptoDetector, ScanContext, ScanResultData, ScanFinding, TargetType } from './types';
 import { RiskEngine } from './RiskEngine';
 import { detectorRegistry } from './framework/DetectorRegistry';
+import { Logger, TelemetryService } from '../observability';
 
 export class ScannerEngine {
   private riskEngine: RiskEngine = new RiskEngine();
@@ -10,8 +11,12 @@ export class ScannerEngine {
     detectorRegistry.register(detector);
   }
 
-  public async runScan(context: ScanContext): Promise<ScanResultData> {
+  public async runScan(context: ScanContext, traceId?: string): Promise<ScanResultData> {
     const allFindings: ScanFinding[] = [];
+    const logger = new Logger({ traceId, component: 'ScannerEngine', targetType: context.targetType });
+    const engineStart = performance.now();
+
+    logger.info('Starting legacy runScan');
 
     // Filter detectors that support the target type
     const activeDetectors = detectorRegistry.getActiveDetectors(context.targetType);
@@ -22,10 +27,14 @@ export class ScannerEngine {
         const start = performance.now();
         const findings = await detector.detect(context);
         const duration = performance.now() - start;
-        if (duration > 1000) console.warn(`[Profiler] Detector ${detector.id} took ${duration.toFixed(2)}ms on ${context.fileName}`);
+        
+        TelemetryService.recordHistogram(`detector.runtime.ms`, duration, { detectorId: detector.id });
+        if (duration > 1000) logger.warn(`Detector ${detector.id} took ${duration.toFixed(2)}ms`, { file: context.fileName });
+        
         return findings;
       } catch (error) {
-        console.error(`ScannerEngine: Detector '${detector.id}' failed during scan:`, error);
+        logger.error(`Detector '${detector.id}' failed during scan`, error, { detectorId: detector.id });
+        TelemetryService.recordCounter('detector.failure', 1, { detectorId: detector.id });
         return [];
       }
     });
@@ -35,9 +44,15 @@ export class ScannerEngine {
 
     // Deduplicate findings
     const deduplicatedFindings = this.deduplicateFindings(allFindings);
-
+    
     // Calculate risk
     const riskData = this.riskEngine.calculateRisk(deduplicatedFindings);
+
+    const totalDuration = performance.now() - engineStart;
+    TelemetryService.recordHistogram('scan.total.duration.ms', totalDuration, { targetType: context.targetType });
+    TelemetryService.recordCounter('scan.findings.total', deduplicatedFindings.length);
+
+    logger.info('Legacy runScan completed', { durationMs: totalDuration, findingCount: deduplicatedFindings.length });
 
     return {
       findings: deduplicatedFindings,
@@ -46,9 +61,14 @@ export class ScannerEngine {
   }
 
   // Support for massive repositories via iterative file reading
-  public async runEnterpriseScan(fileIterator: AsyncIterableIterator<string>, baseTargetType: TargetType): Promise<ScanResultData> {
+  public async runEnterpriseScan(fileIterator: AsyncIterableIterator<string>, baseTargetType: TargetType, traceId?: string): Promise<ScanResultData> {
     const allFindings: ScanFinding[] = [];
     const fs = await import('fs/promises');
+    const logger = new Logger({ traceId, component: 'ScannerEngine', targetType: baseTargetType });
+    const engineStart = performance.now();
+
+    logger.info('Starting runEnterpriseScan');
+    let filesScanned = 0;
 
     // Run detectors sequentially on each file to prevent OOM
     for await (const filePath of fileIterator) {
@@ -58,6 +78,7 @@ export class ScannerEngine {
         if (stat.size > 5 * 1024 * 1024) continue; 
         
         const content = await fs.readFile(filePath, 'utf-8');
+        filesScanned++;
         
         const context: ScanContext = {
           targetType: 'code',
@@ -72,16 +93,27 @@ export class ScannerEngine {
            const start = performance.now();
            const findings = await detector.detect(context);
            const duration = performance.now() - start;
-           if (duration > 500) console.warn(`[Profiler] Detector ${detector.id} took ${duration.toFixed(2)}ms on ${filePath}`);
+           
+           TelemetryService.recordHistogram('detector.runtime.ms', duration, { detectorId: detector.id });
+           
+           if (duration > 500) logger.warn(`Detector ${detector.id} took ${duration.toFixed(2)}ms`, { file: filePath });
            allFindings.push(...findings);
         }
       } catch (err) {
-        console.warn(`ScannerEngine: Failed to scan file ${filePath}`, err);
+        logger.error(`Failed to scan file ${filePath}`, err);
+        TelemetryService.recordCounter('scan.file.failure', 1);
       }
     }
 
     const deduplicatedFindings = this.deduplicateFindings(allFindings);
     const riskData = this.riskEngine.calculateRisk(deduplicatedFindings);
+
+    const totalDuration = performance.now() - engineStart;
+    TelemetryService.recordHistogram('scan.enterprise.total.duration.ms', totalDuration, { targetType: baseTargetType });
+    TelemetryService.recordCounter('scan.enterprise.files.scanned', filesScanned);
+    TelemetryService.recordCounter('scan.enterprise.findings.total', deduplicatedFindings.length);
+
+    logger.info('runEnterpriseScan completed', { durationMs: totalDuration, filesScanned, findingCount: deduplicatedFindings.length });
 
     return {
       findings: deduplicatedFindings,
