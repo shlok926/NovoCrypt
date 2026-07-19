@@ -207,24 +207,6 @@ model QuantumMilestone {
   @@map("quantum_milestones")
 }
 
-// FEATURE 4: MIGRATION PLANNER
-model MigrationPlan {
-  id           String   @id @default(uuid()) @db.Uuid
-  userId       String   @map("user_id") @db.Uuid
-  companyInfo  Json     @map("company_info") @db.JsonB
-  currentStack Json     @map("current_stack") @db.JsonB
-  dataInventory Json    @map("data_inventory") @db.JsonB
-  priorities   Json     @db.JsonB
-  generatedPlan Json    @map("generated_plan") @db.JsonB
-  totalCostMin Int      @map("total_cost_min")
-  totalCostMax Int      @map("total_cost_max")
-  timelineMonths Int    @map("timeline_months")
-  createdAt    DateTime @default(now()) @map("created_at")
-  user         User     @relation("MigrationPlans", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("migration_plans")
-}
-
 // FEATURE 6: COMPLIANCE CHECKER
 model ComplianceCheck {
   id              String   @id @default(uuid()) @db.Uuid
@@ -339,7 +321,6 @@ model User {
   labSessions     LabSession[]     @relation("LabSessions")
   reports         Report[]         @relation("Reports")
   scanResults     ScanResult[]     @relation("ScanResults")
-  migrationPlans  MigrationPlan[]  @relation("MigrationPlans")
   complianceChecks ComplianceCheck[] @relation("ComplianceChecks")
   userPoints      UserPoints?      @relation("UserPoints")
   quizAttempts    QuizAttempt[]    @relation("QuizAttempts")
@@ -568,6 +549,90 @@ model ThreatRecommendation {
   correlation            ThreatCorrelation @relation(fields: [correlationId], references: [id], onDelete: Cascade)
 
   @@map("threat_recommendations")
+}
+
+// ---------------------------------------------------------
+// POST-QUANTUM MIGRATION PLANNING ENGINE DOMAIN
+// ---------------------------------------------------------
+
+model MigrationPlan {
+  id                        String         @id @default(uuid()) @db.Uuid
+  assetId                   String         @map("asset_id") @db.Uuid
+  workflowRunId             String?        @map("workflow_run_id") @db.Uuid
+  status                    String         @db.VarChar(50) // 'draft', 'active', 'completed', 'archived'
+  overallPriority           Int            @default(0) @map("overall_priority")
+  businessPriority          Int            @default(0) @map("business_priority")
+  technicalPriority         Int            @default(0) @map("technical_priority")
+  
+  estimatedDurationDays     Int            @default(0) @map("estimated_duration_days")
+  estimatedEngineeringEffort Int           @default(0) @map("estimated_engineering_effort") // in hours
+  estimatedRiskReduction    Int            @default(0) @map("estimated_risk_reduction")
+  
+  currentProgress           Int            @default(0) @map("current_progress")
+  
+  createdAt                 DateTime       @default(now()) @map("created_at")
+  updatedAt                 DateTime       @updatedAt @map("updated_at")
+
+  phases                    MigrationPhase[]
+  tasks                     MigrationTask[]
+  decisions                 MigrationDecision[]
+
+  @@index([assetId, createdAt(sort: Desc)])
+  @@map("migration_plans")
+}
+
+model MigrationPhase {
+  id               String         @id @default(uuid()) @db.Uuid
+  migrationPlanId  String         @map("migration_plan_id") @db.Uuid
+  phaseOrder       Int            @map("phase_order")
+  title            String         @db.VarChar(255)
+  description      String?        @db.Text
+  status           String         @db.VarChar(50)
+  
+  plan             MigrationPlan  @relation(fields: [migrationPlanId], references: [id], onDelete: Cascade)
+  tasks            MigrationTask[]
+
+  @@map("migration_phases")
+}
+
+model MigrationTask {
+  id                  String         @id @default(uuid()) @db.Uuid
+  migrationPlanId     String         @map("migration_plan_id") @db.Uuid
+  migrationPhaseId    String?        @map("migration_phase_id") @db.Uuid
+  
+  taskType            String         @map("task_type") @db.VarChar(100) // 'algorithm_upgrade', 'key_rotation'
+  title               String         @db.VarChar(255)
+  description         String?        @db.Text
+  
+  algorithm           String?        @db.VarChar(100)
+  currentTechnology   String?        @map("current_technology") @db.VarChar(100)
+  recommendedTechnology String?      @map("recommended_technology") @db.VarChar(100)
+  
+  priority            Int            @default(0)
+  status              String         @db.VarChar(50) // 'pending', 'in_progress', 'completed'
+  estimatedHours      Int            @default(0) @map("estimated_hours")
+  complexity          String         @db.VarChar(50) // 'Low', 'Medium', 'High'
+  dependsOnTaskId     String?        @map("depends_on_task_id") @db.Uuid
+  
+  plan                MigrationPlan  @relation(fields: [migrationPlanId], references: [id], onDelete: Cascade)
+  phase               MigrationPhase? @relation(fields: [migrationPhaseId], references: [id], onDelete: SetNull)
+  dependsOnTask       MigrationTask?  @relation("TaskDependencies", fields: [dependsOnTaskId], references: [id], onDelete: SetNull)
+  dependentTasks      MigrationTask[] @relation("TaskDependencies")
+
+  @@map("migration_tasks")
+}
+
+model MigrationDecision {
+  id               String         @id @default(uuid()) @db.Uuid
+  migrationPlanId  String         @map("migration_plan_id") @db.Uuid
+  decisionType     String         @map("decision_type") @db.VarChar(100) // 'approved', 'rejected', 'paused'
+  approvedByUserId String?        @map("approved_by_user_id") @db.Uuid
+  reason           String?        @db.Text
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  plan             MigrationPlan  @relation(fields: [migrationPlanId], references: [id], onDelete: Cascade)
+
+  @@map("migration_decisions")
 }
 
 // FEATURE 9: COMMUNITY THREADS & REPLIES

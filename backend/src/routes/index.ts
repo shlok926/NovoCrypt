@@ -17,6 +17,7 @@ import assetsRoutes from './assets.routes';
 import jobsRoutes from './jobs.routes';
 import workflowsRoutes from './workflows.routes';
 import correlationsRoutes from './correlations.routes';
+import migrationsRoutes from './migrations.routes';
 
 const router = Router();
 
@@ -38,6 +39,7 @@ router.use('/assets', assetsRoutes);
 router.use('/jobs', jobsRoutes);
 router.use('/workflows', workflowsRoutes);
 router.use('/correlations', correlationsRoutes);
+router.use('/migrations', migrationsRoutes);
 
 router.get('/health', (_req, res) => {
   res.json({

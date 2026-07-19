@@ -9,7 +9,7 @@ const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379'
   maxRetriesPerRequest: null,
 });
 
-export type QueueName = 'scanner' | 'reports' | 'ai' | 'compliance' | 'correlation';
+export type QueueName = 'scanner' | 'reports' | 'compliance' | 'ai' | 'correlation' | 'migration';
 
 // Registry of queues
 const queues: Record<string, Queue> = {
@@ -18,6 +18,7 @@ const queues: Record<string, Queue> = {
   compliance: new Queue('compliance', { connection }),
   ai: new Queue('ai', { connection }),
   correlation: new Queue('correlation', { connection }),
+  migration: new Queue('migration', { connection }),
 };
 
 export class QueueService {

@@ -76,6 +76,7 @@ export class WorkflowEngine {
       case 'compliance': targetQueue = 'compliance'; break;
       case 'ai': targetQueue = 'ai'; break;
       case 'correlation': targetQueue = 'correlation'; break;
+      case 'migration': targetQueue = 'migration'; break;
       default: targetQueue = 'scanner';
     }
 

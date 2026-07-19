@@ -4,7 +4,8 @@ import { scannerApi, ScanResult, ScanFinding } from '@/services/scanner';
 import { jobApi, Job } from '@/services/jobs';
 import { workflowApi, Workflow, WorkflowRun } from '@/services/workflows';
 import { correlationApi, ThreatCorrelation } from '@/services/correlations';
-import { Shield, Search, FileText, CheckCircle, AlertTriangle, XCircle, Terminal, Download, Globe, Server, FileCode, ArrowRight, Activity, Clock, Plus, FolderGit2, Trash2, RefreshCw, Layers, GitMerge, CircleDashed, BrainCircuit } from 'lucide-react';
+import { migrationApi, MigrationPlan } from '@/services/migrations';
+import { Shield, Search, FileText, CheckCircle, AlertTriangle, XCircle, Terminal, Download, Globe, Server, FileCode, ArrowRight, Activity, Clock, Plus, FolderGit2, Trash2, RefreshCw, Layers, GitMerge, CircleDashed, BrainCircuit, Route, Settings2 } from 'lucide-react';
 
 const Scanner: React.FC = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -21,7 +22,7 @@ const Scanner: React.FC = () => {
   const [activeFinding, setActiveFinding] = useState<ScanFinding | null>(null);
 
   // Timeline State
-  const [activeTab, setActiveTab] = useState<'timeline' | 'findings' | 'jobs' | 'intelligence'>('timeline');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'findings' | 'jobs' | 'intelligence' | 'migration'>('timeline');
   const [timelineEvents, setTimelineEvents] = useState<AssetEvent[]>([]);
 
   // Jobs State
@@ -35,6 +36,9 @@ const Scanner: React.FC = () => {
 
   // Threat Correlation State
   const [correlations, setCorrelations] = useState<ThreatCorrelation[]>([]);
+
+  // Migration Plan State
+  const [migrationPlan, setMigrationPlan] = useState<MigrationPlan | null>(null);
 
   useEffect(() => {
     fetchAssets();
@@ -164,11 +168,21 @@ const Scanner: React.FC = () => {
     }
   };
 
+  const fetchMigrationPlan = async (assetId: string) => {
+    try {
+      const res = await migrationApi.getAssetMigration(assetId);
+      setMigrationPlan(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleSelectAsset = async (asset: Asset) => {
     setSelectedAsset(asset);
     setActiveTab('timeline');
     fetchTimeline(asset.id);
     fetchCorrelations(asset.id);
+    fetchMigrationPlan(asset.id);
     setScanResult(null);
   };
 
@@ -346,6 +360,12 @@ const Scanner: React.FC = () => {
                     className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors flex items-center ${activeTab === 'intelligence' ? 'border-red-500 text-red-400' : 'border-transparent text-slate-400 hover:text-slate-300'}`}
                   >
                     <BrainCircuit className="w-4 h-4 mr-2" /> Threat Intelligence
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('migration')}
+                    className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors flex items-center ${activeTab === 'migration' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-300'}`}
+                  >
+                    <Route className="w-4 h-4 mr-2" /> Migration Roadmap
                   </button>
                 </div>
 
@@ -541,6 +561,107 @@ const Scanner: React.FC = () => {
                             </div>
                           </div>
                         ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Migration Roadmap Tab */}
+                {activeTab === 'migration' && (
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-lg p-6 animate-in fade-in slide-in-from-bottom-4">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-semibold text-white flex items-center">
+                        <Route className="w-5 h-5 mr-2 text-indigo-500" /> Enterprise Migration Roadmap
+                      </h3>
+                      {migrationPlan && (
+                        <div className="bg-indigo-500/10 text-indigo-400 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider border border-indigo-500/20">
+                          {migrationPlan.status}
+                        </div>
+                      )}
+                    </div>
+
+                    {!migrationPlan ? (
+                      <div className="text-center text-slate-500 py-12 bg-slate-950/50 rounded-lg border border-slate-800/50">
+                        <Route className="w-12 h-12 text-slate-700 mx-auto mb-3" />
+                        <p>No migration plan generated for this asset yet.</p>
+                        <p className="text-sm mt-1">Run an orchestration pipeline to assess migration readiness.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Executive KPIs */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="bg-slate-950 border border-slate-800 rounded-lg p-4">
+                            <span className="text-xs text-slate-500 uppercase">Est. Engineering Effort</span>
+                            <div className="text-xl font-bold text-white mt-1">{migrationPlan.estimatedEngineeringEffort} <span className="text-sm font-normal text-slate-400">hours</span></div>
+                          </div>
+                          <div className="bg-slate-950 border border-slate-800 rounded-lg p-4">
+                            <span className="text-xs text-slate-500 uppercase">Est. Duration</span>
+                            <div className="text-xl font-bold text-white mt-1">{migrationPlan.estimatedDurationDays} <span className="text-sm font-normal text-slate-400">days</span></div>
+                          </div>
+                          <div className="bg-slate-950 border border-slate-800 rounded-lg p-4">
+                            <span className="text-xs text-slate-500 uppercase">Risk Reduction Forecast</span>
+                            <div className="text-xl font-bold text-emerald-400 mt-1">+{migrationPlan.estimatedRiskReduction} <span className="text-sm font-normal text-emerald-500/50">pts</span></div>
+                          </div>
+                          <div className="bg-slate-950 border border-slate-800 rounded-lg p-4">
+                            <span className="text-xs text-slate-500 uppercase">Technical Priority</span>
+                            <div className="text-xl font-bold text-orange-400 mt-1">{migrationPlan.technicalPriority}/100</div>
+                          </div>
+                        </div>
+
+                        {/* Migration Phases */}
+                        <div className="space-y-4">
+                          <h4 className="text-sm font-semibold text-slate-300 border-b border-slate-800 pb-2">Execution Phases</h4>
+                          
+                          {migrationPlan.phases.map(phase => (
+                            <div key={phase.id} className="bg-slate-950 border border-slate-800 rounded-lg overflow-hidden">
+                              <div className="bg-slate-900/50 px-4 py-3 border-b border-slate-800 flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                  <div className="bg-indigo-500/20 text-indigo-400 w-6 h-6 rounded flex items-center justify-center font-bold text-xs">{phase.phaseOrder}</div>
+                                  <h5 className="font-medium text-white">{phase.title}</h5>
+                                </div>
+                                <span className="text-xs text-slate-500 uppercase tracking-wider">{phase.status}</span>
+                              </div>
+                              
+                              {phase.tasks.length === 0 ? (
+                                <div className="p-4 text-sm text-slate-500 text-center">No tasks currently mapped to this phase.</div>
+                              ) : (
+                                <div className="divide-y divide-slate-800">
+                                  {phase.tasks.map(task => (
+                                    <div key={task.id} className="p-4 hover:bg-slate-900/30 transition-colors">
+                                      <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-2">
+                                          <Settings2 className="w-4 h-4 text-slate-500" />
+                                          <span className="font-medium text-slate-200 text-sm">{task.title}</span>
+                                        </div>
+                                        <span className={`text-xs px-2 py-0.5 rounded border ${
+                                          task.complexity === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
+                                          task.complexity === 'Medium' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                                          'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                        }`}>{task.complexity} Complexity</span>
+                                      </div>
+                                      
+                                      <p className="text-xs text-slate-400 pl-6 mb-3">{task.description}</p>
+                                      
+                                      <div className="pl-6 flex gap-4 text-xs">
+                                        <div className="bg-slate-900 border border-slate-800 rounded px-3 py-1 flex gap-2 items-center">
+                                          <span className="text-slate-500">Current:</span>
+                                          <span className="text-red-400 font-mono">{task.currentTechnology}</span>
+                                        </div>
+                                        <div className="flex items-center text-slate-500">
+                                          <ArrowRight className="w-3 h-3" />
+                                        </div>
+                                        <div className="bg-indigo-500/10 border border-indigo-500/20 rounded px-3 py-1 flex gap-2 items-center">
+                                          <span className="text-slate-500">Target:</span>
+                                          <span className="text-emerald-400 font-mono">{task.recommendedTechnology}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

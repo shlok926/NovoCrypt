@@ -5,6 +5,7 @@ import { scannerEngine } from '../scanner';
 import { prisma } from '../../config/database';
 import { AssetActivityService } from '../assets/AssetActivityService';
 import { ThreatCorrelationEngine } from '../threats/ThreatCorrelationEngine';
+import { MigrationEngine } from '../migrations/MigrationEngine';
 
 const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
   maxRetriesPerRequest: null,
@@ -13,6 +14,7 @@ const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379'
 export class WorkerService {
   private static scannerWorker: Worker;
   private static correlationWorker: Worker;
+  private static migrationWorker: Worker;
 
   static initializeWorkers() {
     this.scannerWorker = new Worker(
@@ -135,6 +137,33 @@ export class WorkerService {
           return { success: true };
         } catch (error) {
           console.error(`Correlation Job ${dbJobId} failed:`, error);
+          await QueueService.markJobFailed(dbJobId, error instanceof Error ? error.message : 'Unknown error');
+          throw error;
+        }
+      },
+      { connection, concurrency: 2 }
+    );
+    
+    this.migrationWorker = new Worker(
+      'migration',
+      async (bullJob: BullJob) => {
+        const { dbJobId, payload } = bullJob.data;
+        const dbJob = await prisma.job.findUnique({ where: { id: dbJobId } });
+        
+        await QueueService.markJobStarted(dbJobId);
+        await QueueService.updateJobProgress(dbJobId, 20, 'Loading Asset & Correlation Data');
+
+        try {
+          if (!dbJob?.assetId) throw new Error('assetId is required for Migration Planning');
+          
+          await QueueService.updateJobProgress(dbJobId, 50, 'Evaluating Migration Rules');
+          await MigrationEngine.planMigration(dbJob.assetId, payload.workflowRunId, dbJobId);
+
+          await QueueService.updateJobProgress(dbJobId, 90, 'Generating Strategic Roadmap');
+          await QueueService.markJobCompleted(dbJobId);
+          return { success: true };
+        } catch (error) {
+          console.error(`Migration Job ${dbJobId} failed:`, error);
           await QueueService.markJobFailed(dbJobId, error instanceof Error ? error.message : 'Unknown error');
           throw error;
         }
