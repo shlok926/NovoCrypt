@@ -105,9 +105,9 @@ reportsRouter.get('/export-csv', requireAuth, async (req: Request, res: Response
       return res.status(404).json({ success: false, message: 'No threats found' });
     }
 
-    const headers = ['Threat ID', 'Title', 'Severity', 'Category', 'Summary', 'Source', 'Reference URL', 'Published Date'];
+    const headers = ['Threat ID', 'Title', 'Severity', 'Category', 'CVE ID', 'Affected Algorithms', 'Impact', 'Recommendation', 'Summary', 'Source', 'Reference URL', 'Published Date'];
     
-    const escapeCSV = (str: string) => {
+    const escapeCSV = (str: string | null | undefined) => {
       if (!str) return '""';
       const escaped = str.replace(/"/g, '""');
       return `"${escaped}"`;
@@ -118,6 +118,10 @@ reportsRouter.get('/export-csv', requireAuth, async (req: Request, res: Response
       escapeCSV(t.title),
       t.severity,
       t.category,
+      escapeCSV(t.cveId),
+      escapeCSV(t.affectedAlgorithms ? t.affectedAlgorithms.join(', ') : ''),
+      escapeCSV(t.impact),
+      escapeCSV(t.recommendation),
       escapeCSV(t.summary),
       escapeCSV(t.source),
       escapeCSV(t.url),
@@ -194,12 +198,28 @@ reportsRouter.get('/export-pdf', requireAuth, async (req: Request, res: Response
       doc.moveDown(0.3);
 
       // Metadata
+      const cveText = t.cveId ? ` | CVE: ${t.cveId}` : '';
       doc.fontSize(10).fillColor('#64748b')
-         .text(`Severity: ${t.severity.toUpperCase()} | Category: ${t.category.toUpperCase()} | Published: ${t.publishedAt.toISOString().split('T')[0]}`);
+         .text(`Severity: ${t.severity.toUpperCase()} | Category: ${t.category.toUpperCase()}${cveText} | Published: ${t.publishedAt.toISOString().split('T')[0]}`);
       doc.moveDown(0.5);
+
+      // Affected Algorithms
+      if (t.affectedAlgorithms && t.affectedAlgorithms.length > 0) {
+        doc.fontSize(10).fillColor('#ef4444').text(`Affected Algorithms: ${t.affectedAlgorithms.join(', ')}`);
+        doc.moveDown(0.2);
+      }
 
       // Summary
       doc.fontSize(11).fillColor('#475569').text(t.summary, { align: 'justify' });
+      doc.moveDown(0.5);
+      
+      // Impact & Recommendation
+      if (t.impact) {
+        doc.fontSize(10).fillColor('#334155').text(`Impact: `, { continued: true }).fillColor('#475569').text(t.impact);
+      }
+      if (t.recommendation) {
+        doc.fontSize(10).fillColor('#334155').text(`Recommendation: `, { continued: true }).fillColor('#475569').text(t.recommendation);
+      }
       doc.moveDown(0.5);
 
       // Source & URL

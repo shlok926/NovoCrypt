@@ -59,15 +59,19 @@ model Report {
 
 // FEATURE 1: THREAT INTELLIGENCE FEED
 model ThreatItem {
-  id          String   @id @default(uuid()) @db.Uuid
-  title       String   @db.VarChar(500)
-  summary     String   @db.Text
-  source      String   @db.VarChar(200)
-  category    String   @db.VarChar(100) // 'advisory' | 'research' | 'breach' | 'vendor'
-  severity    String   @db.VarChar(50) // 'low' | 'medium' | 'high' | 'critical'
-  url         String   @db.VarChar(500)
-  publishedAt DateTime @map("published_at")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id                 String   @id @default(uuid()) @db.Uuid
+  title              String   @db.VarChar(500)
+  summary            String   @db.Text
+  source             String   @db.VarChar(200)
+  category           String   @db.VarChar(100) // 'advisory' | 'research' | 'breach' | 'vendor'
+  severity           String   @db.VarChar(50) // 'low' | 'medium' | 'high' | 'critical'
+  url                String   @db.VarChar(500)
+  affectedAlgorithms String[] @map("affected_algorithms") // Real DB array
+  impact             String?  @db.Text
+  recommendation     String?  @db.Text
+  cveId              String?  @map("cve_id") @db.VarChar(50)
+  publishedAt        DateTime @map("published_at")
+  createdAt          DateTime @default(now()) @map("created_at")
 
   @@map("threat_items")
 }

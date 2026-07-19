@@ -272,24 +272,30 @@ export default function ThreatFeed() {
                           <div>
                             <p className="text-gray-500 text-xs font-semibold mb-1">Affected Algorithms</p>
                             <div className="flex flex-wrap gap-2">
-                              {threat.affectedAlgorithms.map((algo) => (
-                                <span key={algo} className="px-2 py-1 bg-slate-700 text-gray-200 text-xs rounded">
-                                  {algo}
-                                </span>
-                              ))}
+                              {threat.affectedAlgorithms && threat.affectedAlgorithms.length > 0 ? (
+                                threat.affectedAlgorithms.map((algo) => (
+                                  <span key={algo} className="px-2 py-1 bg-slate-700 text-gray-200 text-xs rounded">
+                                    {algo}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-gray-500 text-sm italic">Not Available</span>
+                              )}
                             </div>
                           </div>
 
                           <div>
                             <p className="text-gray-500 text-xs font-semibold mb-1">Impact</p>
-                            <p className="text-gray-300 text-sm">{threat.impact}</p>
+                            <p className="text-gray-300 text-sm">{threat.impact || <span className="text-gray-500 italic">Not Available</span>}</p>
                           </div>
                         </div>
 
-                        <div className="bg-slate-900 rounded p-3 mb-4">
-                          <p className="text-yellow-300 text-sm font-semibold mb-1">Recommendation</p>
-                          <p className="text-gray-300 text-sm">{threat.recommendation}</p>
-                        </div>
+                        {threat.recommendation && (
+                          <div className="bg-slate-900 rounded p-3 mb-4">
+                            <p className="text-yellow-300 text-sm font-semibold mb-1">Recommendation</p>
+                            <p className="text-gray-300 text-sm">{threat.recommendation}</p>
+                          </div>
+                        )}
 
                         <div className="flex items-center justify-between text-sm text-gray-500">
                           <span>Source: {threat.source}</span>

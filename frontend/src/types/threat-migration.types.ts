@@ -10,8 +10,9 @@ export interface ThreatIntelligence {
   category: ThreatCategory;
   date: string;
   affectedAlgorithms: string[];
-  recommendation: string;
-  impact: string;
+  recommendation: string | null;
+  impact: string | null;
+  cveId?: string | null;
   source_url: string;
 }
 

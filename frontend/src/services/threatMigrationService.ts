@@ -37,9 +37,10 @@ export const threatService = {
           severity: item.severity,
           category: item.category,
           date: item.publishedAt || item.date,
-          affectedAlgorithms: item.affectedAlgorithms || ['Unknown'],
-          recommendation: item.recommendation || 'Monitor for updates',
-          impact: item.impact || 'Unknown impact',
+          affectedAlgorithms: item.affectedAlgorithms || [],
+          recommendation: item.recommendation || null,
+          impact: item.impact || null,
+          cveId: item.cveId || null,
           source_url: item.url || item.source_url || '#'
         }));
         threats = [...threats, ...liveItems];
@@ -55,9 +56,10 @@ export const threatService = {
           severity: item.severity,
           category: item.category,
           date: item.publishedAt || item.date,
-          affectedAlgorithms: item.affectedAlgorithms || ['RSA', 'ECDSA'],
-          recommendation: item.recommendation || 'Monitor for updates',
-          impact: item.impact || 'Unknown impact',
+          affectedAlgorithms: item.affectedAlgorithms || [],
+          recommendation: item.recommendation || null,
+          impact: item.impact || null,
+          cveId: item.cveId || null,
           source_url: item.url || item.source_url || '#'
         }));
         threats = [...threats, ...feedItems];
