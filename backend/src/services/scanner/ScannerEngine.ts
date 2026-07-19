@@ -1,30 +1,28 @@
 import { CryptoDetector, ScanContext, ScanResultData, ScanFinding, TargetType } from './types';
 import { RiskEngine } from './RiskEngine';
-import crypto from 'crypto';
+import { detectorRegistry } from './framework/DetectorRegistry';
 
 export class ScannerEngine {
-  private detectors: Map<string, CryptoDetector> = new Map();
   private riskEngine: RiskEngine = new RiskEngine();
 
+  // Keep for backwards compatibility if needed, but proxy to registry
   public registerDetector(detector: CryptoDetector) {
-    if (this.detectors.has(detector.id)) {
-      throw new Error(`ScannerEngine: Detector with ID '${detector.id}' is already registered.`);
-    }
-    this.detectors.set(detector.id, detector);
+    detectorRegistry.register(detector);
   }
 
   public async runScan(context: ScanContext): Promise<ScanResultData> {
     const allFindings: ScanFinding[] = [];
 
     // Filter detectors that support the target type
-    const activeDetectors = Array.from(this.detectors.values()).filter(d => 
-      d.supportedTargets.includes(context.targetType)
-    );
+    const activeDetectors = detectorRegistry.getActiveDetectors(context.targetType);
 
-    // Run detectors in parallel
+    // Run detectors in parallel with performance profiling
     const scanPromises = activeDetectors.map(async (detector) => {
       try {
-        const findings = await detector.scan(context);
+        const start = performance.now();
+        const findings = await detector.detect(context);
+        const duration = performance.now() - start;
+        if (duration > 1000) console.warn(`[Profiler] Detector ${detector.id} took ${duration.toFixed(2)}ms on ${context.fileName}`);
         return findings;
       } catch (error) {
         console.error(`ScannerEngine: Detector '${detector.id}' failed during scan:`, error);
@@ -35,11 +33,14 @@ export class ScannerEngine {
     const results = await Promise.all(scanPromises);
     results.forEach(findings => allFindings.push(...findings));
 
+    // Deduplicate findings
+    const deduplicatedFindings = this.deduplicateFindings(allFindings);
+
     // Calculate risk
-    const riskData = this.riskEngine.calculateRisk(allFindings);
+    const riskData = this.riskEngine.calculateRisk(deduplicatedFindings);
 
     return {
-      findings: allFindings,
+      findings: deduplicatedFindings,
       ...riskData
     };
   }
@@ -65,12 +66,13 @@ export class ScannerEngine {
           language: this.inferLanguage(filePath)
         };
 
-        const activeDetectors = Array.from(this.detectors.values()).filter(d => 
-          d.supportedTargets.includes('code')
-        );
+        const activeDetectors = detectorRegistry.getActiveDetectors('code');
 
         for (const detector of activeDetectors) {
-           const findings = await detector.scan(context);
+           const start = performance.now();
+           const findings = await detector.detect(context);
+           const duration = performance.now() - start;
+           if (duration > 500) console.warn(`[Profiler] Detector ${detector.id} took ${duration.toFixed(2)}ms on ${filePath}`);
            allFindings.push(...findings);
         }
       } catch (err) {
@@ -78,12 +80,34 @@ export class ScannerEngine {
       }
     }
 
-    const riskData = this.riskEngine.calculateRisk(allFindings);
+    const deduplicatedFindings = this.deduplicateFindings(allFindings);
+    const riskData = this.riskEngine.calculateRisk(deduplicatedFindings);
 
     return {
-      findings: allFindings,
+      findings: deduplicatedFindings,
       ...riskData
     };
+  }
+
+  /**
+   * Identifies and suppresses duplicate findings on the same line for the same rule.
+   */
+  private deduplicateFindings(findings: ScanFinding[]): ScanFinding[] {
+    const unique = new Map<string, ScanFinding>();
+    for (const f of findings) {
+      // Hash key: ruleId + file + line (fallback to snippet if line missing)
+      const key = `${f.ruleId}-${f.evidence.file || 'unknown'}-${f.evidence.line || f.evidence.snippet}`;
+      if (!unique.has(key)) {
+        unique.set(key, f);
+      } else {
+        // Keep the one with the highest confidence
+        const existing = unique.get(key)!;
+        if (f.confidence > existing.confidence) {
+          unique.set(key, f);
+        }
+      }
+    }
+    return Array.from(unique.values());
   }
 
   private inferLanguage(filePath: string): string {

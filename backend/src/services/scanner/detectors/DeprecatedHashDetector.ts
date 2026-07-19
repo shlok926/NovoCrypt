@@ -1,5 +1,5 @@
-import { CryptoDetector, ScanContext, ScanFinding, TargetType, DetectorMetadata, Rule, Evidence } from '../types';
-import { RuleEngine } from '../RuleEngine';
+import { ScanContext, ScanFinding, TargetType, DetectorMetadata, Rule, Evidence } from '../types';
+import { BaseDetector } from '../framework/BaseDetector';
 
 const md5Rule: Rule = {
   id: 'RULE_HASH_001',
@@ -25,20 +25,19 @@ const sha1Rule: Rule = {
   references: ['NIST FIPS 180-4']
 };
 
-export class DeprecatedHashDetector implements CryptoDetector {
+export class DeprecatedHashDetector extends BaseDetector {
   id = 'detector-hash-deprecated';
   name = 'Deprecated Hash Algorithm Detector';
   metadata: DetectorMetadata = {
-    version: '1.0.0',
+    version: '1.1.0',
     author: 'NovoCrypt Security Team',
-    ruleVersion: 'v1',
+    ruleVersion: 'v2',
     category: 'Hash Functions',
     documentationUrl: 'https://docs.novocrypt.app/detectors/hash',
   };
   supportedTargets: TargetType[] = ['code', 'config'];
-  private ruleEngine = new RuleEngine();
 
-  async scan(context: ScanContext): Promise<ScanFinding[]> {
+  protected async executeDetection(context: ScanContext): Promise<ScanFinding[]> {
     const findings: ScanFinding[] = [];
     
     if (context.targetType === 'code' && typeof context.target === 'string') {
@@ -58,11 +57,10 @@ export class DeprecatedHashDetector implements CryptoDetector {
             language: context.language,
           };
           
-          findings.push(this.ruleEngine.createFinding(
-            this.id,
+          findings.push(this.buildFinding(
             md5Rule,
             evidence,
-            95 // High confidence due to API boundary match
+            this.calculateConfidence('exact_api')
           ));
         }
 
@@ -75,11 +73,10 @@ export class DeprecatedHashDetector implements CryptoDetector {
             language: context.language,
           };
 
-          findings.push(this.ruleEngine.createFinding(
-            this.id,
+          findings.push(this.buildFinding(
             sha1Rule,
             evidence,
-            95
+            this.calculateConfidence('exact_api')
           ));
         }
       });

@@ -1,5 +1,5 @@
-import { CryptoDetector, ScanContext, ScanFinding, TargetType, DetectorMetadata, Rule, Evidence } from '../types';
-import { RuleEngine } from '../RuleEngine';
+import { ScanContext, ScanFinding, TargetType, DetectorMetadata, Rule, Evidence } from '../types';
+import { BaseDetector } from '../framework/BaseDetector';
 
 const rsa2048Rule: Rule = {
   id: 'RULE_RSA_001',
@@ -14,20 +14,19 @@ const rsa2048Rule: Rule = {
   references: ['NIST SP 800-208', 'FIPS 204']
 };
 
-export class RsaDetector implements CryptoDetector {
+export class RsaDetector extends BaseDetector {
   id = 'detector-rsa';
   name = 'RSA Key & Implementation Detector';
   metadata: DetectorMetadata = {
-    version: '1.0.0',
+    version: '1.1.0',
     author: 'NovoCrypt Security Team',
-    ruleVersion: 'v1',
+    ruleVersion: 'v2',
     category: 'Asymmetric Cryptography',
     documentationUrl: 'https://docs.novocrypt.app/detectors/rsa',
   };
   supportedTargets: TargetType[] = ['code', 'config'];
-  private ruleEngine = new RuleEngine();
 
-  async scan(context: ScanContext): Promise<ScanFinding[]> {
+  protected async executeDetection(context: ScanContext): Promise<ScanFinding[]> {
     const findings: ScanFinding[] = [];
     
     if (context.targetType === 'code' && typeof context.target === 'string') {
@@ -47,11 +46,10 @@ export class RsaDetector implements CryptoDetector {
             language: context.language,
           };
           
-          findings.push(this.ruleEngine.createFinding(
-            this.id,
+          findings.push(this.buildFinding(
             rsa2048Rule,
             evidence,
-            95 // High confidence due to matching exact key size in API arguments
+            this.calculateConfidence('exact_api')
           ));
         }
       });

@@ -60,7 +60,7 @@ export interface CryptoDetector {
   name: string;
   metadata: DetectorMetadata;
   supportedTargets: TargetType[];
-  scan(context: ScanContext): Promise<ScanFinding[]>;
+  detect(context: ScanContext): Promise<ScanFinding[]>;
 }
 
 export interface ScanMetrics {
