@@ -6,6 +6,7 @@ import { prisma } from '../../config/database';
 import { AssetActivityService } from '../assets/AssetActivityService';
 import { ThreatCorrelationEngine } from '../threats/ThreatCorrelationEngine';
 import { MigrationEngine } from '../migrations/MigrationEngine';
+import { TargetAcquisitionService } from '../scanner/acquisition/TargetAcquisitionService';
 
 const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
   maxRetriesPerRequest: null,
@@ -41,12 +42,25 @@ export class WorkerService {
         try {
           await QueueService.updateJobProgress(dbJobId, 30, 'Running Detectors');
           
-          // Execute core logic
-          const result = await scannerEngine.runScan({
-            targetType: payload.targetType,
-            target: payload.target,
-            fileName: payload.fileName,
-          });
+          let result;
+
+          if (payload.targetType === 'git' || payload.targetType === 'local') {
+            // Enterprise Target Acquisition Flow
+            const acquisition = new TargetAcquisitionService();
+            const { files, cleanup } = await acquisition.acquire(dbJobId, payload.targetType, payload.target);
+            try {
+              result = await scannerEngine.runEnterpriseScan(files, 'code');
+            } finally {
+              await cleanup();
+            }
+          } else {
+            // Fallback for original raw-string payloads
+            result = await scannerEngine.runScan({
+              targetType: payload.targetType,
+              target: payload.target,
+              fileName: payload.fileName,
+            });
+          }
 
           await QueueService.updateJobProgress(dbJobId, 80, 'Finalizing Results');
 
