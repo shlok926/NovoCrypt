@@ -96,7 +96,7 @@ export class WorkerService {
           return result;
         } catch (error) {
           console.error(`Job ${dbJobId} failed:`, error);
-          await QueueService.markJobFailed(dbJobId, error instanceof Error ? error.message : 'Unknown error');
+          await QueueService.handleJobException(dbJobId, error, bullJob);
           
           if (dbJob?.assetId) {
              await AssetActivityService.publishEvent({
@@ -138,7 +138,7 @@ export class WorkerService {
           return { success: true };
         } catch (error) {
           console.error(`Correlation Job ${dbJobId} failed:`, error);
-          await QueueService.markJobFailed(dbJobId, error instanceof Error ? error.message : 'Unknown error');
+          await QueueService.handleJobException(dbJobId, error, bullJob);
           throw error;
         }
       },
@@ -165,7 +165,7 @@ export class WorkerService {
           return { success: true };
         } catch (error) {
           console.error(`Migration Job ${dbJobId} failed:`, error);
-          await QueueService.markJobFailed(dbJobId, error instanceof Error ? error.message : 'Unknown error');
+          await QueueService.handleJobException(dbJobId, error, bullJob);
           throw error;
         }
       },
@@ -223,7 +223,7 @@ export class WorkerService {
           return { success: true };
         } catch (error) {
           console.error(`Report Job ${dbJobId} failed:`, error);
-          await QueueService.markJobFailed(dbJobId, error instanceof Error ? error.message : 'Unknown error');
+          await QueueService.handleJobException(dbJobId, error, bullJob);
           throw error;
         }
       },

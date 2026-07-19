@@ -108,4 +108,23 @@ export class QueueService {
     // Notify Workflow Engine
     await WorkflowEngine.handleJobFailure(jobId, errorMessage).catch(err => console.error('Workflow failure hook error:', err));
   }
+
+  static async handleJobException(jobId: string, error: unknown, bullJob: BullJob) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const maxAttempts = bullJob.opts.attempts || 1;
+    
+    if (bullJob.attemptsMade >= maxAttempts - 1) {
+      await this.markJobFailed(jobId, errorMessage);
+    } else {
+      await prisma.job.update({
+        where: { id: jobId },
+        data: { 
+          jobStatus: 'waiting_retry', 
+          currentStage: `Retrying (Attempt ${bullJob.attemptsMade + 2} of ${maxAttempts})`,
+          errorMessage,
+          updatedAt: new Date()
+        }
+      });
+    }
+  }
 }
