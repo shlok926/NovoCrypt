@@ -40,11 +40,11 @@ export interface ScanFinding {
 }
 
 export const scannerApi = {
-  scanCode(code: string, fileName?: string): Promise<{ data: ScanResult }> {
-    return api.post('/scanner/code', { code, fileName }).then(res => res.data);
+  scanCode(code: string, fileName?: string, assetId?: string): Promise<{ data: ScanResult }> {
+    return api.post('/scanner/code', { code, fileName, assetId }).then(res => res.data);
   },
-  scanUrl(domain: string): Promise<{ data: ScanResult }> {
-    return api.post('/scanner/ssl', { domain }).then(res => res.data);
+  scanUrl(domain: string, assetId?: string): Promise<{ data: ScanResult }> {
+    return api.post('/scanner/ssl', { domain, assetId }).then(res => res.data);
   },
   getHistory(limit = 20): Promise<{ data: any[] }> {
     return api.get(`/scanner/history?limit=${limit}`).then(res => res.data);

@@ -13,6 +13,7 @@ import migrationRoutes from './migration.routes';
 import complianceRoutes from './compliance.routes';
 import communityRoutes from './community.routes';
 import chatbotRoutes from './chatbot.routes';
+import assetsRoutes from './assets.routes';
 
 const router = Router();
 
@@ -30,6 +31,7 @@ router.use('/migration', migrationRoutes);
 router.use('/compliance', complianceRoutes);
 router.use('/community', communityRoutes);
 router.use('/chatbot', chatbotRoutes);
+router.use('/assets', assetsRoutes);
 
 router.get('/health', (_req, res) => {
   res.json({

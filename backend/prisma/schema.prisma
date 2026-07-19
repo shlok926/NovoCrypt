@@ -96,10 +96,36 @@ model UnsubscribeFeedback {
   @@map("unsubscribe_feedbacks")
 }
 
-// FEATURE 2: CRYPTOGRAPHY SCANNER
+// FEATURE 2: CRYPTOGRAPHY SCANNER & ASSET MANAGEMENT
+model Asset {
+  id                    String       @id @default(uuid()) @db.Uuid
+  userId                String       @map("user_id") @db.Uuid
+  organizationId        String?      @map("organization_id") @db.Uuid
+  name                  String       @db.VarChar(255)
+  assetType             String       @map("asset_type") @db.VarChar(50) // 'github' | 'git' | 'website' | 'ssl' | 'local' | 'cloud' | 'sbom'
+  repositoryUrl         String?      @map("repository_url") @db.VarChar(500)
+  domain                String?      @db.VarChar(255)
+  description           String?      @db.Text
+  tags                  String[]
+  status                String       @default("active") @db.VarChar(50) // 'active' | 'archived' | 'deleted'
+  currentRiskScore      Int?         @map("current_risk_score")
+  currentQuantumReadiness Int?       @map("current_quantum_readiness")
+  latestScanId          String?      @map("latest_scan_id") @db.Uuid
+  metadata              Json?        @db.JsonB
+  lastScanAt            DateTime?    @map("last_scan_at")
+  nextScheduledScanAt   DateTime?    @map("next_scheduled_scan_at")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+  user                  User         @relation("Assets", fields: [userId], references: [id], onDelete: Cascade)
+  scanResults           ScanResult[] @relation("AssetScans")
+
+  @@map("assets")
+}
+
 model ScanResult {
   id          String   @id @default(uuid()) @db.Uuid
   userId      String   @map("user_id") @db.Uuid
+  assetId     String?  @map("asset_id") @db.Uuid
   scanType    String   @map("scan_type") @db.VarChar(50) // 'url' | 'code' | 'api'
   inputTarget String   @map("input_target") @db.Text
   findings    Json     @db.JsonB
@@ -107,6 +133,7 @@ model ScanResult {
   riskLevel   String   @map("risk_level") @db.VarChar(50)
   scannedAt   DateTime @default(now()) @map("scanned_at")
   user        User     @relation("ScanResults", fields: [userId], references: [id], onDelete: Cascade)
+  asset       Asset?   @relation("AssetScans", fields: [assetId], references: [id], onDelete: SetNull)
 
   @@map("scan_results")
 }
@@ -278,6 +305,7 @@ model User {
   threadUpvotes   ThreadUpvote[]   @relation("UserUpvotes")
   preference      UserPreference?  @relation("UserPreference")
   reportAudits    ReportAudit[]    @relation("ReportAudits")
+  assets          Asset[]          @relation("Assets")
 
   @@map("users")
 }

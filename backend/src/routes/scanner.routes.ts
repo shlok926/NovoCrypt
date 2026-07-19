@@ -7,11 +7,16 @@ const router = Router();
 // POST /api/scanner/ssl - Scan SSL certificate
 router.post('/ssl', async (req: Request, res: Response) => {
   try {
-    const { domain } = req.body;
+    const { domain, assetId } = req.body;
     const userId = req.user?.id;
 
     if (!domain) {
       return res.status(400).json({ success: false, message: 'Domain is required' });
+    }
+
+    if (assetId) {
+      const asset = await prisma.asset.findFirst({ where: { id: assetId, userId } });
+      if (!asset) return res.status(404).json({ success: false, message: 'Asset not found' });
     }
 
     const result = await scannerEngine.runScan({
@@ -20,9 +25,10 @@ router.post('/ssl', async (req: Request, res: Response) => {
     });
 
     if (userId) {
-      await prisma.scanResult.create({
+      const scan = await prisma.scanResult.create({
         data: {
           userId,
+          assetId,
           scanType: 'url',
           inputTarget: domain,
           findings: result.findings as any,
@@ -30,6 +36,18 @@ router.post('/ssl', async (req: Request, res: Response) => {
           riskLevel: result.riskLevel,
         }
       });
+
+      if (assetId) {
+        await prisma.asset.update({
+          where: { id: assetId },
+          data: {
+            latestScanId: scan.id,
+            lastScanAt: scan.scannedAt,
+            currentRiskScore: scan.overallScore,
+            currentQuantumReadiness: result.quantumReadinessScore
+          }
+        });
+      }
     }
 
     res.json({ success: true, data: result });
@@ -42,11 +60,16 @@ router.post('/ssl', async (req: Request, res: Response) => {
 // POST /api/scanner/code - Scan code for vulnerabilities
 router.post('/code', async (req: Request, res: Response) => {
   try {
-    const { code, fileName = 'code.js' } = req.body;
+    const { code, fileName = 'code.js', assetId } = req.body;
     const userId = req.user?.id;
 
     if (!code) {
       return res.status(400).json({ success: false, message: 'Code is required' });
+    }
+
+    if (assetId) {
+      const asset = await prisma.asset.findFirst({ where: { id: assetId, userId } });
+      if (!asset) return res.status(404).json({ success: false, message: 'Asset not found' });
     }
 
     const result = await scannerEngine.runScan({
@@ -56,9 +79,10 @@ router.post('/code', async (req: Request, res: Response) => {
     });
 
     if (userId) {
-      await prisma.scanResult.create({
+      const scan = await prisma.scanResult.create({
         data: {
           userId,
+          assetId,
           scanType: 'code',
           inputTarget: fileName,
           findings: result.findings as any,
@@ -66,6 +90,18 @@ router.post('/code', async (req: Request, res: Response) => {
           riskLevel: result.riskLevel,
         }
       });
+
+      if (assetId) {
+        await prisma.asset.update({
+          where: { id: assetId },
+          data: {
+            latestScanId: scan.id,
+            lastScanAt: scan.scannedAt,
+            currentRiskScore: scan.overallScore,
+            currentQuantumReadiness: result.quantumReadinessScore
+          }
+        });
+      }
     }
 
     res.json({ success: true, data: result });

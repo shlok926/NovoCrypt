@@ -9,7 +9,7 @@ import { ThreatIntelligence } from '../types/threat-migration.types';
 import { ExecutiveReportModal } from './components/ExecutiveReportModal';
 import { 
   ShieldCheck, Activity, Zap, TrendingUp, Clock, AlertTriangle, 
-  CheckCircle, FileText, Beaker, Users, ChevronRight, Lock, Bell, AlertCircle
+  CheckCircle, FileText, Beaker, Users, ChevronRight, Lock, Bell, AlertCircle, Server
 } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
@@ -126,18 +126,20 @@ export const Dashboard: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Quick Stats Bento Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <motion.div variants={itemVariants} className="md:col-span-1 bg-slate-900/60 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between hover:border-slate-700 transition group">
+          <motion.div variants={itemVariants} className="md:col-span-1 bg-slate-900/60 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between hover:border-slate-700 transition group cursor-pointer" onClick={() => navigate('/scanner')}>
             <div className="flex justify-between items-start mb-4">
-              <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
-                <ShieldCheck className="w-6 h-6" />
+              <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+                <Server className="w-6 h-6" />
               </div>
-              <TrendingUp className="w-4 h-4 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <ChevronRight className="w-4 h-4 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
             <div>
-              <p className="text-slate-400 text-sm font-medium">System Readiness</p>
-              <h3 className="text-3xl font-bold text-white mt-1">78<span className="text-lg text-slate-500">%</span></h3>
+              <p className="text-slate-400 text-sm font-medium">Monitored Assets</p>
+              <h3 className="text-3xl font-bold text-white mt-1">
+                {/* Dynamically loaded in real app, using placeholder for design demo */}
+                3
+              </h3>
             </div>
           </motion.div>
 
