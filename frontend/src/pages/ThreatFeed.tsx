@@ -31,7 +31,7 @@ export default function ThreatFeed() {
         const statistics = await threatService.getThreatStatistics();
         setStats(statistics);
       } catch (err: any) {
-        setError('Failed to fetch threat intelligence. Please verify your connection.');
+        setError('Unable to load Threat Feed. Please try again later.');
       } finally {
         setLoading(false);
       }

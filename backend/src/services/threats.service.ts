@@ -95,15 +95,8 @@ export async function getThreatFeed(
 
     return result;
   } catch (error) {
-    console.error('Database unavailable, returning empty threat feed:', error);
-    
-    return {
-      items: [],
-      total: 0,
-      page,
-      limit,
-      pages: 0,
-    };
+    console.error('Database unavailable, throwing error:', error);
+    throw error;
   }
 }
 
@@ -191,14 +184,8 @@ export async function calculateGlobalThreatLevel(): Promise<{
       summary: `${severityCounts.critical} critical, ${severityCounts.high} high severity threats detected`,
     };
   } catch (error) {
-    console.error('Database unavailable, returning low threat level fallback:', error);
-    
-    return {
-      level: 'low',
-      score: 0,
-      trend: 'stable',
-      summary: 'Threat service unavailable.',
-    };
+    console.error('Database unavailable, throwing error:', error);
+    throw error;
   }
 }
 
@@ -213,8 +200,8 @@ export async function getGovernmentAdvisories() {
       take: 10,
     });
   } catch (error) {
-    console.error('Database unavailable, returning empty advisories');
-    return [];
+    console.error('Database unavailable, throwing error:', error);
+    throw error;
   }
 }
 
@@ -229,8 +216,8 @@ export async function getVendorAlerts() {
       take: 10,
     });
   } catch (error) {
-    console.error('Database unavailable, returning empty vendor alerts');
-    return [];
+    console.error('Database unavailable, throwing error:', error);
+    throw error;
   }
 }
 
@@ -355,14 +342,8 @@ export async function getThreatStatistics() {
       lastUpdated: new Date(),
     };
   } catch (error) {
-    console.error('Database unavailable, returning empty statistics');
-    
-    return {
-      totalThreats: 0,
-      bySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
-      byCategory: {},
-      lastUpdated: new Date(),
-    };
+    console.error('Database unavailable, throwing error:', error);
+    throw error;
   }
 }
 
