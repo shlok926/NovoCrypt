@@ -121,6 +121,7 @@ model Asset {
   events                AssetEvent[] @relation("AssetEvents")
   snapshots             AssetSnapshot[] @relation("AssetSnapshots")
   jobs                  Job[]        @relation("AssetJobs")
+  workflowRuns          WorkflowRun[] @relation("AssetWorkflowRuns")
 
   @@map("assets")
 }
@@ -352,6 +353,7 @@ model User {
   assets          Asset[]          @relation("Assets")
   assetEvents     AssetEvent[]     @relation("UserEvents")
   jobs            Job[]            @relation("UserJobs")
+  workflowRuns    WorkflowRun[]    @relation("UserWorkflowRuns")
 
   @@map("users")
 }
@@ -380,10 +382,88 @@ model Job {
 
   asset             Asset?    @relation("AssetJobs", fields: [assetId], references: [id], onDelete: SetNull)
   user              User?     @relation("UserJobs", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  workflowStepExecution WorkflowStepExecution? @relation("JobExecution")
 
   @@index([jobStatus, createdAt(sort: Desc)])
   @@index([assetId, createdAt(sort: Desc)])
   @@map("jobs")
+}
+
+model Workflow {
+  id               String         @id @default(uuid()) @db.Uuid
+  workflowName     String         @map("workflow_name") @db.VarChar(150)
+  workflowType     String         @map("workflow_type") @db.VarChar(50) // e.g. 'scan_pipeline', 'report_pipeline'
+  description      String?        @db.Text
+  version          String         @default("1.0.0") @db.VarChar(20)
+  enabled          Boolean        @default(true)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  steps            WorkflowStep[] @relation("WorkflowSteps")
+  runs             WorkflowRun[]  @relation("WorkflowRuns")
+
+  @@map("workflows")
+}
+
+model WorkflowStep {
+  id               String         @id @default(uuid()) @db.Uuid
+  workflowId       String         @map("workflow_id") @db.Uuid
+  stepOrder        Int            @map("step_order")
+  stepType         String         @map("step_type") @db.VarChar(50)
+  displayName      String         @map("display_name") @db.VarChar(100)
+  jobType          String         @map("job_type") @db.VarChar(50)
+  configuration    Json?          @db.JsonB
+  dependsOnStepId  String?        @map("depends_on_step_id") @db.Uuid
+  retryPolicy      Json?          @map("retry_policy") @db.JsonB
+  timeoutSeconds   Int?           @map("timeout_seconds")
+
+  workflow         Workflow       @relation("WorkflowSteps", fields: [workflowId], references: [id], onDelete: Cascade)
+  dependsOnStep    WorkflowStep?  @relation("StepDependencies", fields: [dependsOnStepId], references: [id], onDelete: SetNull)
+  dependentSteps   WorkflowStep[] @relation("StepDependencies")
+  executions       WorkflowStepExecution[] @relation("StepExecutions")
+
+  @@map("workflow_steps")
+}
+
+model WorkflowRun {
+  id               String         @id @default(uuid()) @db.Uuid
+  workflowId       String         @map("workflow_id") @db.Uuid
+  assetId          String?        @map("asset_id") @db.Uuid
+  requestedByUserId String?       @map("requested_by_user_id") @db.Uuid
+  status           String         @db.VarChar(50) // 'pending', 'running', 'completed', 'failed', 'aborted'
+  currentStep      Int            @default(1) @map("current_step")
+  progress         Int            @default(0)
+  startedAt        DateTime?      @map("started_at")
+  completedAt      DateTime?      @map("completed_at")
+  failedAt         DateTime?      @map("failed_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  workflow         Workflow       @relation("WorkflowRuns", fields: [workflowId], references: [id], onDelete: Cascade)
+  asset            Asset?         @relation("AssetWorkflowRuns", fields: [assetId], references: [id], onDelete: SetNull)
+  user             User?          @relation("UserWorkflowRuns", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  stepExecutions   WorkflowStepExecution[] @relation("RunExecutions")
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([assetId, createdAt(sort: Desc)])
+  @@map("workflow_runs")
+}
+
+model WorkflowStepExecution {
+  id               String         @id @default(uuid()) @db.Uuid
+  workflowRunId    String         @map("workflow_run_id") @db.Uuid
+  workflowStepId   String         @map("workflow_step_id") @db.Uuid
+  jobId            String?        @unique @map("job_id") @db.Uuid
+  status           String         @db.VarChar(50) // 'pending', 'running', 'completed', 'failed'
+  startedAt        DateTime?      @map("started_at")
+  completedAt      DateTime?      @map("completed_at")
+  errorMessage     String?        @map("error_message") @db.Text
+
+  run              WorkflowRun    @relation("RunExecutions", fields: [workflowRunId], references: [id], onDelete: Cascade)
+  step             WorkflowStep   @relation("StepExecutions", fields: [workflowStepId], references: [id], onDelete: Cascade)
+  job              Job?           @relation("JobExecution", fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@map("workflow_step_executions")
 }
 
 // FEATURE 9: COMMUNITY THREADS & REPLIES

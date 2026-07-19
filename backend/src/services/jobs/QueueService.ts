@@ -2,6 +2,7 @@ import { Queue, Worker, Job as BullJob, QueueEvents } from 'bullmq';
 import IORedis from 'ioredis';
 import { prisma } from '../../config/database';
 import { AssetActivityService } from '../assets/AssetActivityService';
+import { WorkflowEngine } from '../workflows/WorkflowEngine';
 
 // Redis connection string (should come from env in production)
 const connection = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
@@ -91,6 +92,9 @@ export class QueueService {
       where: { id: jobId },
       data: { jobStatus: 'completed', completedAt: new Date(), progress: 100, currentStage: 'Completed' },
     });
+
+    // Notify Workflow Engine
+    await WorkflowEngine.handleJobCompletion(jobId).catch(err => console.error('Workflow completion hook error:', err));
   }
 
   static async markJobFailed(jobId: string, errorMessage: string) {
@@ -98,5 +102,8 @@ export class QueueService {
       where: { id: jobId },
       data: { jobStatus: 'failed', failedAt: new Date(), errorMessage },
     });
+
+    // Notify Workflow Engine
+    await WorkflowEngine.handleJobFailure(jobId, errorMessage).catch(err => console.error('Workflow failure hook error:', err));
   }
 }

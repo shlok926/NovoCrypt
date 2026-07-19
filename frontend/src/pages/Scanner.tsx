@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { assetApi, Asset, AssetEvent } from '@/services/assets';
 import { scannerApi, ScanResult, ScanFinding } from '@/services/scanner';
 import { jobApi, Job } from '@/services/jobs';
-import { Shield, Search, FileText, CheckCircle, AlertTriangle, XCircle, Terminal, Download, Globe, Server, FileCode, ArrowRight, Activity, Clock, Plus, FolderGit2, Trash2, RefreshCw, Layers } from 'lucide-react';
+import { workflowApi, Workflow, WorkflowRun } from '@/services/workflows';
+import { Shield, Search, FileText, CheckCircle, AlertTriangle, XCircle, Terminal, Download, Globe, Server, FileCode, ArrowRight, Activity, Clock, Plus, FolderGit2, Trash2, RefreshCw, Layers, GitMerge, CircleDashed } from 'lucide-react';
 
 const Scanner: React.FC = () => {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -26,6 +27,25 @@ const Scanner: React.FC = () => {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
 
+  // Workflow State
+  const [activeWorkflowRunId, setActiveWorkflowRunId] = useState<string | null>(null);
+  const [activeWorkflowRun, setActiveWorkflowRun] = useState<WorkflowRun | null>(null);
+  const [availableWorkflows, setAvailableWorkflows] = useState<Workflow[]>([]);
+
+  useEffect(() => {
+    fetchAssets();
+    fetchWorkflows();
+  }, []);
+
+  const fetchWorkflows = async () => {
+    try {
+      const response = await workflowApi.listTemplates();
+      setAvailableWorkflows(response.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (activeJobId) {
@@ -48,6 +68,30 @@ const Scanner: React.FC = () => {
     }
     return () => clearInterval(interval);
   }, [activeJobId, selectedAsset]);
+
+  // Polling for Workflow Run
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (activeWorkflowRunId) {
+      interval = setInterval(async () => {
+        try {
+          const res = await workflowApi.getRun(activeWorkflowRunId);
+          setActiveWorkflowRun(res.data);
+          
+          if (res.data.status === 'completed' || res.data.status === 'failed' || res.data.status === 'aborted') {
+            setIsScanning(false);
+            setActiveWorkflowRunId(null);
+            fetchAssets();
+            if (selectedAsset) fetchTimeline(selectedAsset.id);
+            setActiveTab('timeline'); 
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [activeWorkflowRunId, selectedAsset]);
 
   const fetchAssets = async () => {
     try {
@@ -76,7 +120,7 @@ const Scanner: React.FC = () => {
     }
   };
 
-  const handleScan = async (asset: Asset) => {
+  const handleRunWorkflow = async (workflowId: string, asset: Asset) => {
     setIsScanning(true);
     setScanResult(null);
     setActiveFinding(null);
@@ -84,27 +128,16 @@ const Scanner: React.FC = () => {
     setActiveTab('jobs');
 
     try {
-      let response;
-      if (asset.assetType === 'ssl' || asset.assetType === 'website') {
-        response = await scannerApi.scanUrl(asset.domain!, asset.id);
-      } else {
-        response = await scannerApi.scanCode(asset.repositoryUrl || 'const rsa = new RSA(2048);', 'index.js', asset.id);
-      }
-
-      if ((response.data as any).jobId) {
-        setActiveJobId((response.data as any).jobId);
-        setScanStatus('Job Queued...');
-      } else {
-        // Fallback for mock/sync returns
-        setScanResult(response.data);
-        setActiveTab('findings');
-        setIsScanning(false);
-        fetchAssets();
-        fetchTimeline(asset.id);
-      }
+      setScanStatus('Initializing Workflow...');
+      const response = await workflowApi.runWorkflow(workflowId, asset.id, { 
+        targetType: asset.assetType === 'ssl' || asset.assetType === 'website' ? 'url' : 'code', 
+        target: asset.domain || asset.repositoryUrl 
+      });
+      setActiveWorkflowRunId(response.data.runId);
+      setScanStatus('Workflow Orchestrating...');
     } catch (error) {
-      console.error("Scan failed", error);
-      alert("Scan failed. Please check the console for details.");
+      console.error("Workflow failed", error);
+      alert("Failed to start workflow. Please check the console for details.");
       setIsScanning(false);
     }
   };
@@ -220,17 +253,34 @@ const Scanner: React.FC = () => {
                       <h2 className="text-2xl font-bold text-white">{selectedAsset.name}</h2>
                       <p className="text-slate-400 font-mono text-sm mt-1">{selectedAsset.domain || selectedAsset.repositoryUrl}</p>
                     </div>
-                    <button 
-                      onClick={() => handleScan(selectedAsset)}
-                      disabled={isScanning}
-                      className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg font-semibold flex items-center transition-colors shadow-lg shadow-cyan-900/20"
-                    >
-                      {isScanning ? (
-                        <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> {activeJob?.currentStage || 'Running...'}</>
-                      ) : (
-                        <><Activity className="w-4 h-4 mr-2" /> Run Analysis</>
+                    <div className="relative group">
+                      <button 
+                        disabled={isScanning || availableWorkflows.length === 0}
+                        className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg font-semibold flex items-center transition-colors shadow-lg shadow-cyan-900/20"
+                      >
+                        {isScanning ? (
+                          <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> {activeWorkflowRun ? `Executing Step ${activeWorkflowRun.currentStep}` : 'Running...'}</>
+                        ) : (
+                          <><GitMerge className="w-4 h-4 mr-2" /> Run Workflow</>
+                        )}
+                      </button>
+                      
+                      {/* Dropdown for workflows */}
+                      {!isScanning && availableWorkflows.length > 0 && (
+                        <div className="absolute top-full right-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
+                          {availableWorkflows.map(wf => (
+                            <button
+                              key={wf.id}
+                              onClick={() => handleRunWorkflow(wf.id, selectedAsset)}
+                              className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors border-b border-slate-700/50 last:border-0"
+                            >
+                              <div className="font-semibold text-white mb-0.5">{wf.workflowName}</div>
+                              <div className="text-xs text-slate-400 line-clamp-1">{wf.description || 'Enterprise execution pipeline'}</div>
+                            </button>
+                          ))}
+                        </div>
                       )}
-                    </button>
+                    </div>
                   </div>
 
                   {/* Asset Core Metrics */}
@@ -276,50 +326,87 @@ const Scanner: React.FC = () => {
                     onClick={() => setActiveTab('jobs')}
                     className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors flex items-center ${activeTab === 'jobs' ? 'border-orange-500 text-orange-400' : 'border-transparent text-slate-400 hover:text-slate-300'}`}
                   >
-                    <Layers className="w-4 h-4 mr-2" /> Active Jobs
+                    <GitMerge className="w-4 h-4 mr-2" /> Workflow Pipeline
                   </button>
                 </div>
 
-                {/* Jobs Tab */}
+                {/* Workflow Tab */}
                 {activeTab === 'jobs' && (
                   <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-lg p-6 animate-in fade-in slide-in-from-bottom-4">
-                    <h3 className="text-lg font-semibold text-white mb-6">Execution Jobs</h3>
+                    <h3 className="text-lg font-semibold text-white mb-6">Orchestration Pipeline</h3>
                     
-                    {!activeJob ? (
-                      <div className="text-center text-slate-500 py-8">No active jobs running for this asset.</div>
+                    {!activeWorkflowRun && !activeJob ? (
+                      <div className="text-center text-slate-500 py-8">No active workflow or job running for this asset.</div>
                     ) : (
                       <div className="bg-slate-950 border border-slate-800 rounded-lg p-5">
-                        <div className="flex justify-between items-center mb-4">
+                        <div className="flex justify-between items-center mb-6">
                           <div className="flex items-center gap-3">
-                            <span className="bg-blue-500/20 text-blue-400 p-2 rounded-lg"><Activity className="w-5 h-5"/></span>
+                            <span className="bg-purple-500/20 text-purple-400 p-2 rounded-lg"><GitMerge className="w-5 h-5"/></span>
                             <div>
-                              <h4 className="text-white font-medium capitalize">{activeJob.jobType.replace('-', ' ')}</h4>
-                              <p className="text-xs text-slate-500 font-mono">Job ID: {activeJob.id.split('-')[0]}</p>
+                              <h4 className="text-white font-medium capitalize">
+                                {activeWorkflowRun ? activeWorkflowRun.workflow.workflowName : activeJob?.jobType.replace('-', ' ')}
+                              </h4>
+                              <p className="text-xs text-slate-500 font-mono">Run ID: {activeWorkflowRun?.id.split('-')[0] || activeJob?.id.split('-')[0]}</p>
                             </div>
                           </div>
                           <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                            activeJob.jobStatus === 'completed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                            activeJob.jobStatus === 'failed' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                            (activeWorkflowRun?.status || activeJob?.jobStatus) === 'completed' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                            (activeWorkflowRun?.status || activeJob?.jobStatus) === 'failed' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
                             'bg-orange-500/20 text-orange-400 border border-orange-500/30 animate-pulse'
                           }`}>
-                            {activeJob.jobStatus}
+                            {activeWorkflowRun?.status || activeJob?.jobStatus}
                           </span>
                         </div>
                         
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-slate-400">Progress</span>
-                            <span className="text-white font-medium">{activeJob.progress}%</span>
+                        <div className="space-y-4">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-slate-400">Pipeline Progress</span>
+                            <span className="text-white font-medium">{activeWorkflowRun?.progress || activeJob?.progress || 0}%</span>
                           </div>
-                          <div className="w-full bg-slate-800 rounded-full h-2">
-                            <div className="bg-gradient-to-r from-blue-500 to-cyan-400 h-2 rounded-full transition-all duration-500" style={{ width: `${activeJob.progress}%` }}></div>
+                          <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden shadow-inner">
+                            <div className="bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-400 h-full transition-all duration-500 relative" style={{ width: `${activeWorkflowRun?.progress || activeJob?.progress || 0}%` }}>
+                              <div className="absolute top-0 right-0 bottom-0 left-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem] animate-pulse"></div>
+                            </div>
                           </div>
-                          <p className="text-xs text-slate-500 mt-2 text-right">{activeJob.currentStage || 'Waiting in queue...'}</p>
+                          
+                          {/* Step List rendering */}
+                          {activeWorkflowRun && (
+                            <div className="mt-6 space-y-3">
+                              <h5 className="text-sm font-semibold text-slate-300 border-b border-slate-800 pb-2">Execution Steps</h5>
+                              {activeWorkflowRun.workflow.steps.map((step) => {
+                                const execution = activeWorkflowRun.stepExecutions?.find(e => e.workflowStepId === step.id);
+                                return (
+                                  <div key={step.id} className="flex items-center justify-between text-sm p-3 rounded-lg bg-slate-900 border border-slate-800">
+                                    <div className="flex items-center gap-3">
+                                      {execution?.status === 'completed' ? <CheckCircle className="w-4 h-4 text-emerald-500" /> :
+                                       execution?.status === 'running' ? <RefreshCw className="w-4 h-4 text-orange-400 animate-spin" /> :
+                                       execution?.status === 'failed' ? <XCircle className="w-4 h-4 text-red-500" /> :
+                                       <CircleDashed className="w-4 h-4 text-slate-600" />}
+                                      <span className={execution?.status === 'completed' ? 'text-slate-300' : execution?.status === 'running' ? 'text-white font-medium' : 'text-slate-500'}>
+                                        {step.stepOrder}. {step.displayName}
+                                      </span>
+                                    </div>
+                                    <span className="text-xs text-slate-500 font-mono uppercase bg-slate-950 px-2 py-1 rounded">
+                                      {execution?.status || 'pending'}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          
+                          {!activeWorkflowRun && activeJob && (
+                             <p className="text-xs text-slate-500 mt-2 text-right">{activeJob.currentStage || 'Waiting in queue...'}</p>
+                          )}
                         </div>
                         
-                        {activeJob.errorMessage && (
-                          <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
-                            <strong>Error:</strong> {activeJob.errorMessage}
+                        {(activeWorkflowRun?.stepExecutions?.find(e => e.status === 'failed')?.errorMessage || activeJob?.errorMessage) && (
+                          <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400 flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 shrink-0" />
+                            <div>
+                              <strong>Execution Error:</strong><br />
+                              {activeWorkflowRun?.stepExecutions?.find(e => e.status === 'failed')?.errorMessage || activeJob?.errorMessage}
+                            </div>
                           </div>
                         )}
                       </div>
