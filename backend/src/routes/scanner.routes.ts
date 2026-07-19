@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import * as scannerService from '../services/scanner.service';
+import { scannerEngine } from '../services/scanner';
+import { prisma } from '../config/database';
 
 const router = Router();
 
@@ -7,26 +8,34 @@ const router = Router();
 router.post('/ssl', async (req: Request, res: Response) => {
   try {
     const { domain } = req.body;
+    const userId = req.user?.id;
 
     if (!domain) {
-      return res.status(400).json({
-        success: false,
-        message: 'Domain is required',
+      return res.status(400).json({ success: false, message: 'Domain is required' });
+    }
+
+    const result = await scannerEngine.runScan({
+      targetType: 'url',
+      target: domain,
+    });
+
+    if (userId) {
+      await prisma.scanResult.create({
+        data: {
+          userId,
+          scanType: 'url',
+          inputTarget: domain,
+          findings: result.findings as any,
+          overallScore: result.overallRiskScore,
+          riskLevel: result.riskLevel,
+        }
       });
     }
 
-    const result = await scannerService.scanSSLCertificate(domain);
-
-    res.json({
-      success: true,
-      data: result,
-    });
+    res.json({ success: true, data: result });
   } catch (error) {
     console.error('SSL scan error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'SSL scan failed',
-    });
+    res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'SSL scan failed' });
   }
 });
 
@@ -34,26 +43,35 @@ router.post('/ssl', async (req: Request, res: Response) => {
 router.post('/code', async (req: Request, res: Response) => {
   try {
     const { code, fileName = 'code.js' } = req.body;
+    const userId = req.user?.id;
 
     if (!code) {
-      return res.status(400).json({
-        success: false,
-        message: 'Code is required',
+      return res.status(400).json({ success: false, message: 'Code is required' });
+    }
+
+    const result = await scannerEngine.runScan({
+      targetType: 'code',
+      target: code,
+      fileName,
+    });
+
+    if (userId) {
+      await prisma.scanResult.create({
+        data: {
+          userId,
+          scanType: 'code',
+          inputTarget: fileName,
+          findings: result.findings as any,
+          overallScore: result.overallRiskScore,
+          riskLevel: result.riskLevel,
+        }
       });
     }
 
-    const result = await scannerService.scanCode(code, fileName);
-
-    res.json({
-      success: true,
-      data: result,
-    });
+    res.json({ success: true, data: result });
   } catch (error) {
     console.error('Code scan error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Code scan failed',
-    });
+    res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Code scan failed' });
   }
 });
 
@@ -63,65 +81,62 @@ router.post('/ssl/batch', async (req: Request, res: Response) => {
     const { domains } = req.body;
 
     if (!Array.isArray(domains) || domains.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Domains array is required',
-      });
+      return res.status(400).json({ success: false, message: 'Domains array is required' });
     }
 
-    const results = await scannerService.batchScanSSL(domains);
+    const results = await Promise.all(
+      domains.map(domain => scannerEngine.runScan({ targetType: 'url', target: domain }))
+    );
 
-    res.json({
-      success: true,
-      data: results,
-    });
+    res.json({ success: true, data: results });
   } catch (error) {
     console.error('Batch SSL scan error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Batch SSL scan failed',
-    });
+    res.status(500).json({ success: false, message: 'Batch SSL scan failed' });
   }
 });
 
 // GET /api/scanner/history - Get scan history
 router.get('/history', async (req: Request, res: Response) => {
   try {
-    const { type, limit = 20 } = req.query;
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    const history = await scannerService.getScanHistory(
-      (type as 'ssl' | 'code' | undefined),
-      parseInt(limit as string) || 20
-    );
+    const limit = parseInt(req.query.limit as string) || 20;
 
-    res.json({
-      success: true,
-      data: history,
+    const history = await prisma.scanResult.findMany({
+      where: { userId },
+      orderBy: { scannedAt: 'desc' },
+      take: limit
     });
+
+    res.json({ success: true, data: history });
   } catch (error) {
     console.error('History fetch error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch scan history',
-    });
+    res.status(500).json({ success: false, message: 'Failed to fetch scan history' });
   }
 });
 
 // GET /api/scanner/statistics - Get scan statistics
 router.get('/statistics', async (req: Request, res: Response) => {
   try {
-    const stats = await scannerService.getScanStatistics();
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    res.json({
-      success: true,
-      data: stats,
-    });
+    const totalScans = await prisma.scanResult.count({ where: { userId } });
+    
+    // Simplistic statistics for now
+    const stats = {
+      totalScans,
+      sslScans: await prisma.scanResult.count({ where: { userId, scanType: 'url' } }),
+      codeScans: await prisma.scanResult.count({ where: { userId, scanType: 'code' } }),
+      criticalVulnerabilities: 0,
+      avgRiskLevel: 'medium',
+    };
+
+    res.json({ success: true, data: stats });
   } catch (error) {
     console.error('Stats fetch error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch statistics',
-    });
+    res.status(500).json({ success: false, message: 'Failed to fetch statistics' });
   }
 });
 
