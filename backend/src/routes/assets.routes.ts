@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../config/database';
-import { authenticate } from '../middleware/auth';
+import { requireAuth } from '../middleware/auth.middleware';
 import { AssetActivityService } from '../services/assets/AssetActivityService';
 
 const router = Router();
-router.use(authenticate);
+router.use(requireAuth);
 
 // GET /api/assets - List all assets for the user
 router.get('/', async (req: Request, res: Response) => {

@@ -30,7 +30,7 @@ export class MigrationEngine {
         workflowRunId,
         status: 'draft',
         overallPriority: correlation.overallPriority,
-        businessPriority: asset.businessCriticality === 'High' ? 90 : 50,
+        businessPriority: 50, // Default for now
       }
     });
 
@@ -108,8 +108,8 @@ export class MigrationEngine {
         eventType: 'Migration Plan Generated',
         title: `Strategic Migration Roadmap Created`,
         description: `Generated roadmap with ${correlation.recommendations.length} tasks. Estimated Effort: ${totalEffort} hours.`,
-        severity: 'high',
-        sourceModule: 'migration-planner',
+        severity: 'warning',
+        sourceModule: 'migration',
         systemGenerated: true,
       });
 

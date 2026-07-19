@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../config/database';
 import { AssetActivityService } from '../services/assets/AssetActivityService';
 import { QueueService } from '../services/jobs/QueueService';
+import { scannerEngine } from '../services/scanner/ScannerEngine';
 
 const router = Router();
 

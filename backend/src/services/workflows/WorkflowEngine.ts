@@ -191,7 +191,7 @@ export class WorkflowEngine {
     });
 
     await prisma.workflowRun.update({
-      where: { id: execution.runId },
+      where: { id: execution.workflowRunId },
       data: { status: 'failed', failedAt: new Date() }
     });
 

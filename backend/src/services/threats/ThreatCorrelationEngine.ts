@@ -107,8 +107,8 @@ export class ThreatCorrelationEngine {
         eventType: 'Threat Correlation Completed',
         title: `Intelligence Correlated`,
         description: `Correlated ${matches.length} threats. Highest severity: ${highestSeverity}. Generated ${uniqueRules.size} recommendations.`,
-        severity: highestSeverity as any,
-        sourceModule: 'threat-correlation',
+        severity: highestSeverity === 'high' ? 'warning' : highestSeverity as any,
+        sourceModule: 'threat-intel',
         systemGenerated: true,
       });
 

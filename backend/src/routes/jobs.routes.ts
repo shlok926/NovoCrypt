@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../config/database';
-import { authenticate } from '../middleware/auth';
+import { requireAuth } from '../middleware/auth.middleware';
 import { QueueService } from '../services/jobs/QueueService';
 
 const router = Router();
-router.use(authenticate);
+router.use(requireAuth);
 
 // GET /api/jobs - List user's jobs
 router.get('/', async (req: Request, res: Response) => {
