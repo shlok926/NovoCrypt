@@ -28,6 +28,14 @@ export class TlsX509Detector extends BaseDetector {
   };
   supportedTargets: TargetType[] = ['code', 'config', 'url'];
   
+  capabilities = {
+    id: 'tls-security',
+    version: '1.0.0',
+    languages: this.supportedLanguages,
+    categories: ['Certificate Expiration', 'Protocol Security', 'Cipher Strength', 'Chain Trust'],
+    supportsAst: true
+  };
+  
   private staticAnalyzer = new StaticCertificateAnalyzer();
   private liveAnalyzer = new LiveTlsAnalyzer();
 

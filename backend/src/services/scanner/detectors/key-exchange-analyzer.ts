@@ -38,7 +38,7 @@ export class KeyExchangeAnalyzer {
     }
   ];
 
-  public analyzeLine(line: string): KeyExchangeMatch | null {
+  public analyzeLine(line: string, astNodes?: any): KeyExchangeMatch | null {
     for (const pattern of this.patterns) {
       const match = pattern.regex.exec(line);
       if (match) {

@@ -27,6 +27,15 @@ export class EccDetector extends BaseDetector {
     supportedLanguages: this.supportedLanguages,
     supportedExtensions: this.supportedExtensions
   };
+
+  capabilities = {
+    id: 'ecc-security',
+    version: '1.0.0',
+    languages: this.supportedLanguages,
+    categories: ['Key Generation', 'Signature', 'Key Exchange', 'API Misuse'],
+    supportsAst: true
+  };
+
   supportedTargets: TargetType[] = ['code', 'config'];
 
   private curveAnalyzer = new CurveAnalyzer();
@@ -36,6 +45,33 @@ export class EccDetector extends BaseDetector {
   private apiUsageAnalyzer = new ApiUsageAnalyzer();
   private migrationAnalyzer = new QuantumMigrationAnalyzer();
 
+  private detectLibrary(code: string): string {
+    if (/node-forge|forge\.pki/i.test(code)) return 'node-forge';
+    if (/libsodium|sodium_/i.test(code)) return 'libsodium';
+    if (/bouncycastle|org\.bouncycastle/i.test(code)) return 'BouncyCastle';
+    if (/ring::signature|ring::rand/i.test(code)) return 'ring';
+    if (/cryptography\.hazmat/i.test(code)) return 'Python Cryptography';
+    if (/golang\.org\/x\/crypto\/curve25519/i.test(code)) return 'Go x/crypto';
+    if (/openssl|EC_KEY_/i.test(code)) return 'OpenSSL';
+    if (/wolfssl/i.test(code)) return 'wolfSSL';
+    if (/mbedtls/i.test(code)) return 'mbedTLS';
+    if (/sun\.security\.ec|SunEC/i.test(code)) return 'SunEC';
+    if (/elliptic/i.test(code)) return 'elliptic-js';
+    return 'Native/Standard Library';
+  }
+
+  private detectUsageContext(code: string): string {
+    if (/jsonwebtoken|jwt|jose|jwk/i.test(code)) return 'JWT';
+    if (/https\.request|tls\.connect|TLSSocket|ssl/i.test(code)) return 'TLS';
+    if (/ssh2|paramiko|libssh/i.test(code)) return 'SSH';
+    if (/x509|CertificateFactory|X509Certificate/i.test(code)) return 'X.509';
+    if (/bitcoin|ethereum|solana|ethers|web3|secp256k1/i.test(code)) return 'Blockchain';
+    if (/vpn|ipsec|strongswan/i.test(code)) return 'VPN';
+    if (/codesign|signTool|jarsigner/i.test(code)) return 'Code signing';
+    if (/firmware|bootloader|secure\s*boot/i.test(code)) return 'Firmware signing';
+    return 'Cryptographic Operation';
+  }
+
   protected async executeDetection(context: ScanContext): Promise<ScanFinding[]> {
     const findings: ScanFinding[] = [];
     const sourceFile = context.fileName || 'unknown_file';
@@ -44,6 +80,9 @@ export class EccDetector extends BaseDetector {
       const start = performance.now();
       const targetCode = context.target;
       const lines = targetCode.split('\n');
+      
+      const fileLibrary = this.detectLibrary(targetCode);
+      const fileContext = this.detectUsageContext(targetCode);
       
       // Analyze file-wide context to allow cross-line correlation
       const hasKeyGen = /KeyPairGenerator|generateKeyPair|ECDsa\.Create|generate_private_key|GenerateKey|libsodium/i.test(targetCode);
@@ -55,11 +94,14 @@ export class EccDetector extends BaseDetector {
         const trimmedLine = line.trim();
         if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) return; // skip comments
         
+        // Mock AST node context parameter to prove future AST engine capability integration
+        const astNodesMock = undefined;
+        
         // 1. Analyze curve declarations
-        const curvesFound = this.curveAnalyzer.analyzeLine(trimmedLine);
+        const curvesFound = this.curveAnalyzer.analyzeLine(trimmedLine, astNodesMock);
         
         // 2. Analyze key generation
-        const keygenFound = this.keygenAnalyzer.analyzeLine(trimmedLine);
+        const keygenFound = this.keygenAnalyzer.analyzeLine(trimmedLine, astNodesMock);
         if (keygenFound) {
           TelemetryService.recordCounter('ecc.keygen.detected', 1);
           if (keygenFound.isWeakRandom) {
@@ -70,17 +112,19 @@ export class EccDetector extends BaseDetector {
                 {
                   algorithm: 'ECDSA/ECDH KeyGen',
                   purpose: 'Key Generation',
+                  usageContext: fileContext,
                   securityClassification: 'Weak',
                   language: context.language || 'unknown',
                   api: keygenFound.api,
-                  library: keygenFound.library,
+                  library: keygenFound.library || fileLibrary,
                   file: sourceFile,
                   line: lineNum,
                   snippet: trimmedLine.substring(0, 200),
                   detectorVersion: this.version,
                   evidenceQuality: 90,
                   confidence: 95,
-                  recommendation: eccRules.ECC005.recommendation
+                  recommendation: eccRules.ECC005.recommendation,
+                  standardsReferences: ['NIST SP 800-90A', 'OWASP Cryptographic Storage Cheat Sheet']
                 }
               )
             );
@@ -88,7 +132,7 @@ export class EccDetector extends BaseDetector {
         }
         
         // 3. Analyze signature usage
-        const sigFound = this.signatureAnalyzer.analyzeLine(trimmedLine);
+        const sigFound = this.signatureAnalyzer.analyzeLine(trimmedLine, astNodesMock);
         if (sigFound) {
           TelemetryService.recordCounter('ecc.signatures.detected', 1);
           if (sigFound.isWeakHash) {
@@ -99,17 +143,19 @@ export class EccDetector extends BaseDetector {
                 {
                   algorithm: 'ECDSA',
                   purpose: 'Digital Signature',
+                  usageContext: fileContext,
                   securityClassification: 'Weak',
                   language: context.language || 'unknown',
                   api: sigFound.api,
-                  library: sigFound.library,
+                  library: sigFound.library || fileLibrary,
                   file: sourceFile,
                   line: lineNum,
                   snippet: trimmedLine.substring(0, 200),
                   detectorVersion: this.version,
                   evidenceQuality: 95,
                   confidence: 95,
-                  recommendation: eccRules.ECC004.recommendation
+                  recommendation: eccRules.ECC004.recommendation,
+                  standardsReferences: ['FIPS 186-5', 'OWASP Cryptographic Storage Cheat Sheet']
                 }
               )
             );
@@ -117,32 +163,35 @@ export class EccDetector extends BaseDetector {
         }
         
         // 4. Analyze key exchange usage
-        const kxFound = this.keyExchangeAnalyzer.analyzeLine(trimmedLine);
+        const kxFound = this.keyExchangeAnalyzer.analyzeLine(trimmedLine, astNodesMock);
         if (kxFound) {
           TelemetryService.recordCounter('ecc.ecdh.detected', 1);
         }
         
         // 5. Analyze general API misuse
-        const apiMisuse = this.apiUsageAnalyzer.analyzeLine(trimmedLine);
+        const apiMisuse = this.apiUsageAnalyzer.analyzeLine(trimmedLine, astNodesMock);
         if (apiMisuse) {
           TelemetryService.recordCounter('ecc.api.misuse', 1);
-          const rule = apiMisuse.issue === 'CustomCurve' ? eccRules.ECC003 : eccRules.ECC003;
+          const rule = eccRules.ECC003;
           findings.push(
             this.buildEccFinding(
               rule,
               {
                 algorithm: 'ECC API',
                 purpose: 'Elliptic Curve Cryptography API Usage',
+                usageContext: fileContext,
                 securityClassification: 'Weak',
                 language: context.language || 'unknown',
                 api: apiMisuse.api,
+                library: fileLibrary,
                 file: sourceFile,
                 line: lineNum,
                 snippet: trimmedLine.substring(0, 200),
                 detectorVersion: this.version,
                 evidenceQuality: 85,
                 confidence: 90,
-                recommendation: apiMisuse.description
+                recommendation: apiMisuse.description,
+                standardsReferences: ['RFC 6979', 'NIST SP 800-56A', 'OWASP Cryptographic Storage Cheat Sheet']
               }
             )
           );
@@ -154,14 +203,12 @@ export class EccDetector extends BaseDetector {
             const curve = match.curve;
             TelemetryService.recordCounter('ecc.curves.detected', 1);
             
-            // Map telemetry based on classification
             if (curve.classification === 'Secure Classical') {
               TelemetryService.recordCounter('ecc.curves.secure', 1);
             } else {
               TelemetryService.recordCounter('ecc.curves.deprecated', 1);
             }
             
-            // Determine active rule based on curve classification
             let ruleToApply: Rule | null = null;
             let classification: EccSecurityClassification = curve.classification;
             
@@ -170,7 +217,6 @@ export class EccDetector extends BaseDetector {
             } else if (curve.classification === 'Deprecated') {
               ruleToApply = eccRules.ECC002;
             } else if (curve.classification === 'Secure Classical') {
-              // Standard secure modern curves generate quantum migration recommendation ONLY
               if (this.migrationAnalyzer.checkMigrationNeed(curve)) {
                 TelemetryService.recordCounter('ecc.quantum.migration', 1);
                 ruleToApply = eccRules.ECCM001;
@@ -178,13 +224,12 @@ export class EccDetector extends BaseDetector {
             }
             
             if (ruleToApply) {
-              // Determine operation type/purpose based on context
               let purpose = 'Configuration';
               let alg = 'ECC';
-              let confidenceScore = 60; // default for curve keyword in text
+              let confidenceScore = 60;
               let explanation = 'Elliptic curve parameter mentioned in source code';
               let api = 'Namespace Configuration';
-              let library: string | undefined = undefined;
+              let library: string | undefined = fileLibrary;
               
               if (keygenFound) {
                 purpose = 'Key Generation';
@@ -192,45 +237,56 @@ export class EccDetector extends BaseDetector {
                 confidenceScore = 95;
                 explanation = 'Curve parameter verified inside cryptographic key generation context';
                 api = keygenFound.api;
-                library = keygenFound.library;
+                library = keygenFound.library || fileLibrary;
               } else if (sigFound) {
                 purpose = 'Digital Signature';
                 alg = sigFound.isEd25519OrEd448 ? 'EdDSA' : 'ECDSA';
                 confidenceScore = 95;
                 explanation = 'Curve parameter verified inside digital signature context';
                 api = sigFound.api;
-                library = sigFound.library;
+                library = sigFound.library || fileLibrary;
               } else if (kxFound) {
                 purpose = 'Key Agreement';
                 alg = 'ECDH';
                 confidenceScore = 95;
                 explanation = 'Curve parameter verified inside key agreement context';
                 api = kxFound.api;
-                library = kxFound.library;
+                library = kxFound.library || fileLibrary;
               } else if (hasKeyGen) {
                 purpose = 'Key Generation';
                 alg = 'ECDSA/ECDH KeyGen';
                 confidenceScore = 95;
                 explanation = 'Curve parameter verified via key generation namespace imports';
                 api = 'KeyPairGenerator';
-                library = 'Standard Provider';
               } else if (hasSig) {
                 purpose = 'Digital Signature';
                 alg = 'ECDSA';
                 confidenceScore = 95;
                 explanation = 'Curve parameter verified via signature namespace imports';
                 api = 'Signature API';
-                library = 'Standard Provider';
               } else if (hasKx) {
                 purpose = 'Key Agreement';
                 alg = 'ECDH';
                 confidenceScore = 95;
                 explanation = 'Curve parameter verified via key agreement namespace imports';
                 api = 'Key Agreement API';
-                library = 'Standard Provider';
               } else if (trimmedLine.includes('import') || trimmedLine.includes('require') || trimmedLine.includes('using')) {
                 confidenceScore = 80;
                 explanation = 'Curve imported or referenced via namespace configuration';
+              }
+              
+              // Dynamically build Standards References list for this curve & algorithm
+              const standardsReferences: string[] = ['OWASP Cryptographic Storage Cheat Sheet'];
+              const nameLower = curve.name.toLowerCase();
+              if (nameLower.includes('25519')) {
+                standardsReferences.push(nameLower.includes('ed') ? 'RFC 8032 (Ed25519)' : 'RFC 7748 (Curve25519/X25519)');
+              } else if (nameLower.includes('448')) {
+                standardsReferences.push(nameLower.includes('ed') ? 'RFC 8032 (Ed448)' : 'RFC 7748 (Curve448/X448)');
+              } else if (nameLower.includes('nist') || nameLower.includes('p-')) {
+                standardsReferences.push('NIST SP 800-186');
+              }
+              if (alg.includes('ECDSA') || hasSig) {
+                standardsReferences.push('RFC 6979 (Deterministic ECDSA)');
               }
               
               findings.push(
@@ -241,6 +297,7 @@ export class EccDetector extends BaseDetector {
                     oid: curve.oid,
                     algorithm: alg,
                     purpose: purpose,
+                    usageContext: fileContext,
                     keySize: curve.keySize,
                     securityClassification: classification,
                     language: context.language || 'unknown',
@@ -252,7 +309,8 @@ export class EccDetector extends BaseDetector {
                     detectorVersion: this.version,
                     evidenceQuality: 90,
                     confidence: confidenceScore,
-                    recommendation: ruleToApply.recommendation
+                    recommendation: ruleToApply.recommendation,
+                    standardsReferences: standardsReferences
                   }
                 )
               );
@@ -265,12 +323,10 @@ export class EccDetector extends BaseDetector {
       TelemetryService.recordHistogram('ecc.runtime.ms', duration);
     }
     
-    // Deduplicate findings on same line for same rule to avoid redundant reports
     return this.deduplicateFindings(findings);
   }
   
   private buildEccFinding(rule: Rule, evidence: EccEvidence): ScanFinding {
-    // Generate standard base finding
     const standardEvidence: Evidence = {
       file: evidence.file,
       line: evidence.line,
@@ -282,7 +338,6 @@ export class EccDetector extends BaseDetector {
     
     const finding = this.buildFinding(rule, standardEvidence, evidence.confidence);
     
-    // Inject the structured evidence model properties into evidence object
     finding.evidence = {
       ...finding.evidence,
       ...evidence

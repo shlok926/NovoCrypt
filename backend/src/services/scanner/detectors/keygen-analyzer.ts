@@ -55,7 +55,7 @@ export class KeyGenerationAnalyzer {
     }
   ];
 
-  public analyzeLine(line: string): KeyGenMatch | null {
+  public analyzeLine(line: string, astNodes?: any): KeyGenMatch | null {
     // Direct check for weak entropy source or PRNG seeding
     const weakSeedRegex = /(new\s+SecureRandom\s*\(\s*new\s+byte|new\s+SecureRandom\s*\(\s*seed|srand\s*\(|random\.seed\()/i;
     if (weakSeedRegex.test(line)) {

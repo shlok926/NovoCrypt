@@ -22,6 +22,7 @@ async function runTests() {
   const weakCodeJava = `
     import java.security.KeyPairGenerator;
     import java.security.spec.ECGenParameterSpec;
+    import org.bouncycastle.jce.provider.BouncyCastleProvider;
     
     KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
     kpg.initialize(new ECGenParameterSpec("secp160r1"));
@@ -188,8 +189,19 @@ async function runTests() {
     assert(ev.oid === '1.3.132.0.9', 'Evidence captures OID correctly');
     assert(ev.keySize === 160, 'Evidence captures key size correctly');
     assert(ev.confidence === 95, 'Evidence confidence score is calculated correctly based on API context');
+    assert(ev.library === 'BouncyCastle', 'Evidence correctly fingerprints library BouncyCastle from source context');
+    assert(ev.usageContext === 'Cryptographic Operation', 'Evidence correctly classifies usage context');
   } else {
     assert(false, 'Evidence fields are not populated');
+  }
+
+  // Test Case 14: Dynamic Standards Reference Assertion (NIST Curve)
+  const checkEvidenceCs = findingsSecureCs.find(f => f.ruleId === 'ECCM001');
+  if (checkEvidenceCs && checkEvidenceCs.evidence) {
+    const evCs = checkEvidenceCs.evidence as any;
+    assert(evCs.standardsReferences && evCs.standardsReferences.includes('NIST SP 800-186'), 'Evidence includes NIST SP 800-186 reference for NIST curves');
+  } else {
+    assert(false, 'NIST standard reference evidence is missing');
   }
 
   // --- SUMMARY ---

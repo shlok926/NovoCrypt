@@ -45,7 +45,7 @@ export class SignatureAnalyzer {
     }
   ];
 
-  public analyzeLine(line: string): SignatureMatch | null {
+  public analyzeLine(line: string, astNodes?: any): SignatureMatch | null {
     for (const pattern of this.patterns) {
       const match = pattern.regex.exec(line);
       if (match) {

@@ -6,7 +6,7 @@ export interface ApiUsageMatch {
 }
 
 export class ApiUsageAnalyzer {
-  public analyzeLine(line: string): ApiUsageMatch | null {
+  public analyzeLine(line: string, astNodes?: any): ApiUsageMatch | null {
     // 1. Static Nonce / custom k parameter
     // Look for static nonce patterns (e.g. hardcoded hex or numeric constant assigned to nonce/k)
     const staticNonceRegex = /\b(nonce|k|iv)\s*=\s*(?:['"`]([0-9a-fA-F]{8,})['"`]|\b0x[0-9a-fA-F]+\b|\b\d+\b|Buffer\.from\(['"`]([0-9a-fA-F]{8,})['"`]\))/i;

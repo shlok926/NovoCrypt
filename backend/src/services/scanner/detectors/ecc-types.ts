@@ -13,6 +13,7 @@ export interface EccEvidence {
   oid?: string;
   algorithm: string;
   purpose: string;
+  usageContext?: string;
   keySize?: number;
   securityClassification: EccSecurityClassification;
   language: string;
@@ -25,6 +26,7 @@ export interface EccEvidence {
   evidenceQuality: number;
   confidence: number;
   recommendation: string;
+  standardsReferences?: string[];
 }
 
 export const curveMetadata: Record<string, CurveDetails> = {

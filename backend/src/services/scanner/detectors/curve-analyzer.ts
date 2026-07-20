@@ -25,7 +25,7 @@ export class CurveAnalyzer {
     { regex: /(brainpoolp512r1|brainpool\s*p512)/i, key: 'brainpoolp512r1' }
   ];
 
-  public analyzeLine(line: string): { curve: CurveDetails; matchedString: string }[] {
+  public analyzeLine(line: string, astNodes?: any): { curve: CurveDetails; matchedString: string }[] {
     const results: { curve: CurveDetails; matchedString: string }[] = [];
     for (const pattern of this.patterns) {
       const match = pattern.regex.exec(line);
