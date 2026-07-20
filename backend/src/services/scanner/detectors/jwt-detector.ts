@@ -216,23 +216,31 @@ export class JwtDetector extends BaseDetector {
             rule = jwtRules.JWT003;
           }
 
-          findings.push(
-            this.buildJwtFinding(rule, {
-              tokenType: 'JWS',
-              threatContext: threatContext,
-              language: languageName,
-              api: signatureIssue.api,
-              library: libraryName,
-              file: sourceFile,
-              line: lineNum,
-              snippet: trimmedLine.substring(0, 200),
-              detectorVersion: this.version,
-              evidenceQuality: 95,
-              confidence: correlatedSecret ? 98 : 95,
-              recommendation: signatureIssue.description + secretSource,
-              standardsReferences: ['RFC 7515', 'RFC 8725 Section 3.1']
-            })
-          );
+          const hasAsymmetricContext = /publicKey|pem|cert|\.key|jwks|asymmetric|RS256/i.test(targetCode);
+          const isHighSeverityConfusion = hasAsymmetricContext || correlatedSecret;
+          const confidenceScore = isHighSeverityConfusion ? (correlatedSecret ? 98 : 95) : 70;
+
+          const finding = this.buildJwtFinding(rule, {
+            tokenType: 'JWS',
+            threatContext: threatContext,
+            language: languageName,
+            api: signatureIssue.api,
+            library: libraryName,
+            file: sourceFile,
+            line: lineNum,
+            snippet: trimmedLine.substring(0, 200),
+            detectorVersion: this.version,
+            evidenceQuality: 95,
+            confidence: confidenceScore,
+            recommendation: signatureIssue.description + (isHighSeverityConfusion ? '' : ' (Hardening recommendation)') + secretSource,
+            standardsReferences: ['RFC 7515', 'RFC 8725 Section 3.1']
+          });
+
+          if (!isHighSeverityConfusion && finding.ruleId === 'JWT002') {
+            finding.severity = 'medium';
+          }
+
+          findings.push(finding);
         }
 
         // 4. Claims audits
