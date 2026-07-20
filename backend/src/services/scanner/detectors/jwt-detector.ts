@@ -218,9 +218,21 @@ export class JwtDetector extends BaseDetector {
 
           const hasAsymmetricContext = /publicKey|pem|cert|\.key|jwks|asymmetric|RS256/i.test(targetCode);
           const isHighSeverityConfusion = hasAsymmetricContext || correlatedSecret;
-          const confidenceScore = isHighSeverityConfusion ? (correlatedSecret ? 98 : 95) : 70;
+          
+          let confidenceScore = 95;
+          let ruleToUse = rule;
 
-          const finding = this.buildJwtFinding(rule, {
+          if (signatureIssue.issue === 'AlgorithmConfusion') {
+            if (isHighSeverityConfusion) {
+              confidenceScore = correlatedSecret ? 98 : 95;
+            } else {
+              // Weak evidence only -> map to Hardening Recommendation rule with Low/Info level
+              ruleToUse = jwtRules.JWTB001;
+              confidenceScore = 65;
+            }
+          }
+
+          const finding = this.buildJwtFinding(ruleToUse, {
             tokenType: 'JWS',
             threatContext: threatContext,
             language: languageName,
@@ -232,13 +244,9 @@ export class JwtDetector extends BaseDetector {
             detectorVersion: this.version,
             evidenceQuality: 95,
             confidence: confidenceScore,
-            recommendation: signatureIssue.description + (isHighSeverityConfusion ? '' : ' (Hardening recommendation)') + secretSource,
+            recommendation: signatureIssue.description + (isHighSeverityConfusion ? '' : ' (Hardening recommendation: specify allowed algorithms list to block confusion attacks)') + secretSource,
             standardsReferences: ['RFC 7515', 'RFC 8725 Section 3.1']
           });
-
-          if (!isHighSeverityConfusion && finding.ruleId === 'JWT002') {
-            finding.severity = 'medium';
-          }
 
           findings.push(finding);
         }
