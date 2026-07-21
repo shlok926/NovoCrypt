@@ -325,7 +325,7 @@ async function runTests() {
   assert(res35.length === 0, 'Comment lines are ignored (false positive suppression)');
 
   // Test Case 36: Capabilities Metadata check
-  assert(detector.capabilities.supportsAST === true, 'PQC capabilities supportAST is true');
+  assert(detector.capabilities.supportsAST === false, 'PQC capabilities supportsAST is false');
   assert(detector.capabilities.supportsCrossFileCorrelation === true, 'PQC capabilities supportCrossFileCorrelation is true');
 
   // --- SUMMARY ---

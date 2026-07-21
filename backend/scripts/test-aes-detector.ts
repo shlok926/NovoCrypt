@@ -200,7 +200,7 @@ async function runTests() {
   assert(res23.length === 0, 'Comment lines are ignored (false positive suppression)');
 
   // Test Case 24: Capabilities Metadata check
-  assert(detector.capabilities.supportsAST === true, 'Symmetric capabilities supportAST is true');
+  assert(detector.capabilities.supportsAST === false, 'Symmetric capabilities supportsAST is false');
   assert(detector.capabilities.supportsCrossFileCorrelation === true, 'Symmetric capabilities supportCrossFileCorrelation is true');
 
   // --- SUMMARY ---

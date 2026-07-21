@@ -1,4 +1,4 @@
-import { ScanContext, ScanFinding, TargetType, DetectorMetadata, Evidence, Rule } from '../types';
+import { ScanContext, ScanFinding, TargetType, DetectorMetadata, Evidence, Rule, DetectionContext, SupportLevel, DetectionSupport, LanguageSupportMatrix, KnownBypassMatrix } from '../types';
 import { BaseDetector } from '../framework/BaseDetector';
 import { CurveAnalyzer } from './curve-analyzer';
 import { KeyGenerationAnalyzer } from './keygen-analyzer';
@@ -17,7 +17,48 @@ export class EccDetector extends BaseDetector {
   category = 'Elliptic Curve Cryptography';
   supportedLanguages = ['javascript', 'typescript', 'python', 'java', 'go', 'csharp', 'rust', 'c', 'cpp'];
   supportedExtensions = ['.js', '.ts', '.py', '.java', '.go', '.cs', '.rs', '.c', '.cpp'];
-  
+
+  languageMatrix: LanguageSupportMatrix = {
+    supportedLanguages: this.supportedLanguages,
+    languages: this.supportedLanguages.map(lang => ({
+      language: lang,
+      supportLevel: SupportLevel.FULL,
+      notes: 'ECC curve validation and ECDSA/ECDH audits supported'
+    }))
+  };
+
+  bypassMatrix: KnownBypassMatrix = {
+    regex: DetectionSupport.FULL,
+    templateLiterals: DetectionSupport.FULL,
+    stringConcatenation: DetectionSupport.FULL,
+    aliases: DetectionSupport.PARTIAL,
+    factories: DetectionSupport.AST_REQUIRED,
+    reflection: DetectionSupport.AST_REQUIRED,
+    dynamicImports: DetectionSupport.AST_REQUIRED,
+    unicode: DetectionSupport.PARTIAL,
+    base64: DetectionSupport.PARTIAL,
+    hex: DetectionSupport.PARTIAL,
+    environmentVariables: DetectionSupport.PARTIAL,
+    wrapperMethods: DetectionSupport.AST_REQUIRED
+  };
+
+  capabilities = {
+    id: 'ecc-security',
+    version: '1.0.0',
+    category: ['Key Generation', 'Signature', 'Key Exchange', 'API Misuse'],
+    supportsRegex: true,
+    supportsCrossFileCorrelation: true,
+    supportsTemplateResolution: true,
+    supportsStaticAnalysis: true,
+    supportsLanguageAwareness: true,
+    supportsAST: false,
+    supportsRuntimeAnalysis: false,
+    supportsDataFlow: false,
+    supportsReflection: false,
+    supportsSecretsCorrelation: true,
+    supportsNetworkInspection: false
+  };
+
   metadata: DetectorMetadata = {
     version: '1.0.0',
     author: 'NovoCrypt Security Team',
@@ -25,15 +66,10 @@ export class EccDetector extends BaseDetector {
     category: 'Elliptic Curve Cryptography',
     documentationUrl: 'https://docs.novocrypt.app/detectors/ecc',
     supportedLanguages: this.supportedLanguages,
-    supportedExtensions: this.supportedExtensions
-  };
-
-  capabilities = {
-    id: 'ecc-security',
-    version: '1.0.0',
-    languages: this.supportedLanguages,
-    categories: ['Key Generation', 'Signature', 'Key Exchange', 'API Misuse'],
-    supportsAst: true
+    supportedExtensions: this.supportedExtensions,
+    capabilities: this.capabilities,
+    languageMatrix: this.languageMatrix,
+    bypassMatrix: this.bypassMatrix
   };
 
   supportedTargets: TargetType[] = ['code', 'config'];
@@ -72,7 +108,7 @@ export class EccDetector extends BaseDetector {
     return 'Cryptographic Operation';
   }
 
-  protected async executeDetection(context: ScanContext): Promise<ScanFinding[]> {
+  protected async executeDetection(context: ScanContext, detectionContext?: DetectionContext): Promise<ScanFinding[]> {
     const findings: ScanFinding[] = [];
     const sourceFile = context.fileName || 'unknown_file';
     
@@ -94,11 +130,15 @@ export class EccDetector extends BaseDetector {
         const trimmedLine = line.trim();
         if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) return; // skip comments
         
+        // Use resolved string if template literal or string concatenation was resolved
+        const resolvedItem = detectionContext?.resolvedStrings.get(lineNum);
+        const lineToAnalyze = resolvedItem?.isResolved ? resolvedItem.resolved : trimmedLine;
+
         // Mock AST node context parameter to prove future AST engine capability integration
         const astNodesMock = undefined;
         
         // 1. Analyze curve declarations
-        const curvesFound = this.curveAnalyzer.analyzeLine(trimmedLine, astNodesMock);
+        const curvesFound = this.curveAnalyzer.analyzeLine(lineToAnalyze, astNodesMock);
         
         // 2. Analyze key generation
         const keygenFound = this.keygenAnalyzer.analyzeLine(trimmedLine, astNodesMock);

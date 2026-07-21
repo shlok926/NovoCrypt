@@ -1,4 +1,4 @@
-import { ScanContext, ScanFinding, TargetType, DetectorMetadata, Evidence, Rule } from '../types';
+import { ScanContext, ScanFinding, TargetType, DetectorMetadata, Evidence, Rule, DetectionContext, SupportLevel, DetectionSupport, LanguageSupportMatrix, KnownBypassMatrix } from '../types';
 import { BaseDetector } from '../framework/BaseDetector';
 import { AlgorithmAnalyzer } from './aes-algorithm-analyzer';
 import { ModeAnalyzer } from './aes-mode-analyzer';
@@ -23,6 +23,47 @@ export class AesDetector extends BaseDetector {
   supportedLanguages = ['javascript', 'typescript', 'python', 'java', 'go', 'csharp', 'rust', 'c', 'cpp'];
   supportedExtensions = ['.js', '.ts', '.py', '.java', '.go', '.cs', '.rs', '.c', '.cpp', '.h', '.json', '.yaml', '.yml'];
 
+  languageMatrix: LanguageSupportMatrix = {
+    supportedLanguages: this.supportedLanguages,
+    languages: this.supportedLanguages.map(lang => ({
+      language: lang,
+      supportLevel: SupportLevel.FULL,
+      notes: 'Static string and regex pattern parsing supported'
+    }))
+  };
+
+  bypassMatrix: KnownBypassMatrix = {
+    regex: DetectionSupport.FULL,
+    templateLiterals: DetectionSupport.FULL,
+    stringConcatenation: DetectionSupport.FULL,
+    aliases: DetectionSupport.PARTIAL,
+    factories: DetectionSupport.AST_REQUIRED,
+    reflection: DetectionSupport.AST_REQUIRED,
+    dynamicImports: DetectionSupport.AST_REQUIRED,
+    unicode: DetectionSupport.PARTIAL,
+    base64: DetectionSupport.PARTIAL,
+    hex: DetectionSupport.PARTIAL,
+    environmentVariables: DetectionSupport.PARTIAL,
+    wrapperMethods: DetectionSupport.AST_REQUIRED
+  };
+
+  capabilities = {
+    id: 'aes-security',
+    version: '1.0.0',
+    category: ['Cryptography', 'Symmetric Encryption'],
+    supportsRegex: true,
+    supportsCrossFileCorrelation: true,
+    supportsTemplateResolution: true,
+    supportsStaticAnalysis: true,
+    supportsLanguageAwareness: true,
+    supportsAST: false,
+    supportsRuntimeAnalysis: false,
+    supportsDataFlow: false,
+    supportsReflection: false,
+    supportsSecretsCorrelation: true,
+    supportsNetworkInspection: false
+  };
+
   metadata: DetectorMetadata = {
     version: '1.0.0',
     author: 'NovoCrypt Security Team',
@@ -30,16 +71,10 @@ export class AesDetector extends BaseDetector {
     category: 'Cryptography',
     documentationUrl: 'https://docs.novocrypt.app/detectors/aes',
     supportedLanguages: this.supportedLanguages,
-    supportedExtensions: this.supportedExtensions
-  };
-
-  capabilities = {
-    id: 'aes-security',
-    version: '1.0.0',
-    category: ['Cryptography', 'Symmetric Encryption'],
-    supportsAST: true,
-    supportsCrossFileCorrelation: true,
-    supportsTelemetry: true
+    supportedExtensions: this.supportedExtensions,
+    capabilities: this.capabilities,
+    languageMatrix: this.languageMatrix,
+    bypassMatrix: this.bypassMatrix
   };
 
   supportedTargets: TargetType[] = ['code', 'config'];
@@ -58,7 +93,7 @@ export class AesDetector extends BaseDetector {
 
 
 
-  protected async executeDetection(context: ScanContext): Promise<ScanFinding[]> {
+  protected async executeDetection(context: ScanContext, detectionContext?: DetectionContext): Promise<ScanFinding[]> {
     const findings: ScanFinding[] = [];
     const sourceFile = context.fileName || 'unknown_file';
 
@@ -115,23 +150,27 @@ export class AesDetector extends BaseDetector {
         const trimmedLine = line.trim();
         if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) return;
 
+        // Use resolved string if template literal or string concatenation was resolved
+        const resolvedItem = detectionContext?.resolvedStrings.get(lineNum);
+        const lineToAnalyze = resolvedItem?.isResolved ? resolvedItem.resolved : trimmedLine;
+
         // Ast compatibility mock
         const astMock = undefined;
 
         // 2. Performance limit: check statement length
-        if (trimmedLine.length > 8192) return;
+        if (lineToAnalyze.length > 8192) return;
 
         // Run sub-analyzers
-        const algoIssue = this.algoAnalyzer.analyzeLine(trimmedLine, astMock);
-        const modeIssue = this.modeAnalyzer.analyzeLine(trimmedLine, astMock);
-        const aeadIssue = this.aeadAnalyzer.analyzeLine(trimmedLine, astMock);
-        const kdfIssue = this.kdfAnalyzer.analyzeLine(trimmedLine, astMock);
-        const keyIssue = this.keyMgmtAnalyzer.analyzeLine(trimmedLine, astMock);
-        const ivIssue = this.ivAnalyzer.analyzeLine(trimmedLine, astMock);
-        const randomIssue = this.randomnessAnalyzer.analyzeLine(trimmedLine, astMock);
-        const paddingIssue = this.paddingAnalyzer.analyzeLine(trimmedLine, astMock);
-        const apiUsageIssue = this.apiUsageAnalyzer.analyzeLine(trimmedLine, astMock);
-        const bestPractice = this.bestPracticesAnalyzer.analyzeLine(trimmedLine, astMock);
+        const algoIssue = this.algoAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const modeIssue = this.modeAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const aeadIssue = this.aeadAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const kdfIssue = this.kdfAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const keyIssue = this.keyMgmtAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const ivIssue = this.ivAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const randomIssue = this.randomnessAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const paddingIssue = this.paddingAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const apiUsageIssue = this.apiUsageAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const bestPractice = this.bestPracticesAnalyzer.analyzeLine(lineToAnalyze, astMock);
 
         // Standard References List
         const standards = ['NIST SP 800-38A', 'OWASP Cryptographic Storage Cheat Sheet'];

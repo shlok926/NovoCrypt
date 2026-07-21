@@ -1,4 +1,4 @@
-import { ScanContext, ScanFinding, TargetType, DetectorMetadata, Evidence, Rule } from '../types';
+import { ScanContext, ScanFinding, TargetType, DetectorMetadata, Evidence, Rule, DetectionContext, SupportLevel, DetectionSupport, LanguageSupportMatrix, KnownBypassMatrix } from '../types';
 import { BaseDetector } from '../framework/BaseDetector';
 import { ClassicalCryptoAnalyzer } from './pqc-classical-crypto-analyzer';
 import { PqcAlgorithmAnalyzer } from './pqc-algorithm-analyzer';
@@ -13,7 +13,7 @@ import { ProtocolAnalyzer } from './pqc-protocol-analyzer';
 import { LibraryFingerprintAnalyzer } from './pqc-library-fingerprint-analyzer';
 import { BestPracticesAnalyzer } from './pqc-best-practices-analyzer';
 import { pqcRules } from './pqc-rule-catalog';
-import { PqcEvidence, PqcAlgorithm, SecurityCategory, MigrationStage, AgilityClassification, HybridStatus } from './pqc-types';
+import { PqcEvidence, SecurityCategory, PqcAlgorithm, MigrationStage, AgilityClassification, HybridStatus } from './pqc-types';
 import { TelemetryService } from '../../observability';
 
 export class PqcDetector extends BaseDetector {
@@ -24,6 +24,47 @@ export class PqcDetector extends BaseDetector {
   supportedLanguages = ['javascript', 'typescript', 'python', 'java', 'go', 'csharp', 'rust', 'c', 'cpp'];
   supportedExtensions = ['.js', '.ts', '.py', '.java', '.go', '.cs', '.rs', '.c', '.cpp', '.h', '.json', '.yaml', '.yml'];
 
+  languageMatrix: LanguageSupportMatrix = {
+    supportedLanguages: this.supportedLanguages,
+    languages: this.supportedLanguages.map(lang => ({
+      language: lang,
+      supportLevel: SupportLevel.FULL,
+      notes: 'PQC algorithm and classical transition audits supported'
+    }))
+  };
+
+  bypassMatrix: KnownBypassMatrix = {
+    regex: DetectionSupport.FULL,
+    templateLiterals: DetectionSupport.FULL,
+    stringConcatenation: DetectionSupport.FULL,
+    aliases: DetectionSupport.PARTIAL,
+    factories: DetectionSupport.AST_REQUIRED,
+    reflection: DetectionSupport.AST_REQUIRED,
+    dynamicImports: DetectionSupport.AST_REQUIRED,
+    unicode: DetectionSupport.PARTIAL,
+    base64: DetectionSupport.PARTIAL,
+    hex: DetectionSupport.PARTIAL,
+    environmentVariables: DetectionSupport.PARTIAL,
+    wrapperMethods: DetectionSupport.AST_REQUIRED
+  };
+
+  capabilities = {
+    id: 'pqc-security',
+    version: '1.0.0',
+    category: ['Cryptography', 'Post-Quantum'],
+    supportsRegex: true,
+    supportsCrossFileCorrelation: true,
+    supportsTemplateResolution: true,
+    supportsStaticAnalysis: true,
+    supportsLanguageAwareness: true,
+    supportsAST: false,
+    supportsRuntimeAnalysis: false,
+    supportsDataFlow: false,
+    supportsReflection: false,
+    supportsSecretsCorrelation: true,
+    supportsNetworkInspection: false
+  };
+
   metadata: DetectorMetadata = {
     version: '1.0.0',
     author: 'NovoCrypt Security Team',
@@ -31,16 +72,10 @@ export class PqcDetector extends BaseDetector {
     category: 'Cryptography',
     documentationUrl: 'https://docs.novocrypt.app/detectors/pqc',
     supportedLanguages: this.supportedLanguages,
-    supportedExtensions: this.supportedExtensions
-  };
-
-  capabilities = {
-    id: 'pqc-security',
-    version: '1.0.0',
-    category: ['Cryptography', 'Post-Quantum'],
-    supportsAST: true,
-    supportsCrossFileCorrelation: true,
-    supportsTelemetry: true
+    supportedExtensions: this.supportedExtensions,
+    capabilities: this.capabilities,
+    languageMatrix: this.languageMatrix,
+    bypassMatrix: this.bypassMatrix
   };
 
   supportedTargets: TargetType[] = ['code', 'config'];
@@ -58,9 +93,7 @@ export class PqcDetector extends BaseDetector {
   private libraryAnalyzer = new LibraryFingerprintAnalyzer();
   private bestPracticesAnalyzer = new BestPracticesAnalyzer();
 
-
-
-  protected async executeDetection(context: ScanContext): Promise<ScanFinding[]> {
+  protected async executeDetection(context: ScanContext, detectionContext?: DetectionContext): Promise<ScanFinding[]> {
     const findings: ScanFinding[] = [];
     const sourceFile = context.fileName || 'unknown_file';
 
@@ -138,22 +171,26 @@ export class PqcDetector extends BaseDetector {
         const trimmedLine = line.trim();
         if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) return;
 
+        // Use resolved string if template literal or string concatenation was resolved
+        const resolvedItem = detectionContext?.resolvedStrings.get(lineNum);
+        const lineToAnalyze = resolvedItem?.isResolved ? resolvedItem.resolved : trimmedLine;
+
         // Ast compatibility mock
         const astMock = undefined;
 
         // 2. Performance limit: check statement length
-        if (trimmedLine.length > 8192) return;
+        if (lineToAnalyze.length > 8192) return;
 
         // Run sub-analyzers
-        const classical = this.classicalAnalyzer.analyzeLine(trimmedLine, astMock);
-        const pqcAlg = this.pqcAlgoAnalyzer.analyzeLine(trimmedLine, astMock);
-        const hybrid = this.hybridAnalyzer.analyzeLine(trimmedLine, astMock);
-        const agility = this.agilityAnalyzer.analyzeLine(trimmedLine, astMock);
-        const cert = this.certificateAnalyzer.analyzeLine(trimmedLine, astMock);
-        const kex = this.keyExchangeAnalyzer.analyzeLine(trimmedLine, astMock);
-        const sig = this.signatureAnalyzer.analyzeLine(trimmedLine, astMock);
-        const proto = this.protocolAnalyzer.analyzeLine(trimmedLine, astMock);
-        const bestPractice = this.bestPracticesAnalyzer.analyzeLine(trimmedLine, astMock);
+        const classical = this.classicalAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const pqcAlg = this.pqcAlgoAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const hybrid = this.hybridAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const agility = this.agilityAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const cert = this.certificateAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const kex = this.keyExchangeAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const sig = this.signatureAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const proto = this.protocolAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const bestPractice = this.bestPracticesAnalyzer.analyzeLine(lineToAnalyze, astMock);
 
         // Standard references
         const standards = ['FIPS 203', 'FIPS 204', 'NIST IR 8547'];

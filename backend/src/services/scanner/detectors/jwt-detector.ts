@@ -1,17 +1,17 @@
-import { ScanContext, ScanFinding, TargetType, DetectorMetadata, Evidence, Rule } from '../types';
+import { ScanContext, ScanFinding, TargetType, DetectorMetadata, Evidence, Rule, DetectionContext, SupportLevel, DetectionSupport, LanguageSupportMatrix, KnownBypassMatrix } from '../types';
 import { BaseDetector } from '../framework/BaseDetector';
 import { TokenAnalyzer } from './jwt-token-analyzer';
 import { SignatureAnalyzer } from './jwt-signature-analyzer';
 import { ClaimsAnalyzer } from './jwt-claims-analyzer';
 import { KeyManagementAnalyzer } from './jwt-key-management-analyzer';
 import { StorageAnalyzer } from './jwt-storage-analyzer';
+import { ReplayProtectionAnalyzer as ReplayAnalyzer } from './jwt-replay-analyzer';
 import { ApiUsageAnalyzer } from './jwt-api-usage-analyzer';
 import { LibraryFingerprintAnalyzer } from './jwt-library-fingerprint-analyzer';
 import { JwtBestPracticesAnalyzer } from './jwt-best-practices-analyzer';
 import { jwtRules } from './jwt-rule-catalog';
-import { JwtEvidence, TokenType, SecretClassification } from './jwt-types';
+import { JwtEvidence, SecretClassification } from './jwt-types';
 import { TelemetryService } from '../../observability';
-import { ReplayProtectionAnalyzer as ReplayAnalyzer } from './jwt-replay-analyzer';
 
 export class JwtDetector extends BaseDetector {
   id = 'detector-jwt';
@@ -21,6 +21,47 @@ export class JwtDetector extends BaseDetector {
   supportedLanguages = ['javascript', 'typescript', 'python', 'java', 'go', 'csharp'];
   supportedExtensions = ['.js', '.ts', '.py', '.java', '.go', '.cs', '.json', '.yaml', '.yml'];
 
+  languageMatrix: LanguageSupportMatrix = {
+    supportedLanguages: this.supportedLanguages,
+    languages: this.supportedLanguages.map(lang => ({
+      language: lang,
+      supportLevel: SupportLevel.FULL,
+      notes: 'Token parsing and verification audits supported'
+    }))
+  };
+
+  bypassMatrix: KnownBypassMatrix = {
+    regex: DetectionSupport.FULL,
+    templateLiterals: DetectionSupport.FULL,
+    stringConcatenation: DetectionSupport.FULL,
+    aliases: DetectionSupport.PARTIAL,
+    factories: DetectionSupport.AST_REQUIRED,
+    reflection: DetectionSupport.AST_REQUIRED,
+    dynamicImports: DetectionSupport.AST_REQUIRED,
+    unicode: DetectionSupport.PARTIAL,
+    base64: DetectionSupport.FULL,
+    hex: DetectionSupport.PARTIAL,
+    environmentVariables: DetectionSupport.PARTIAL,
+    wrapperMethods: DetectionSupport.AST_REQUIRED
+  };
+
+  capabilities = {
+    id: 'jwt-security',
+    version: '1.0.0',
+    category: ['Authentication', 'Authorization', 'Cryptography'],
+    supportsRegex: true,
+    supportsCrossFileCorrelation: true,
+    supportsTemplateResolution: true,
+    supportsStaticAnalysis: true,
+    supportsLanguageAwareness: true,
+    supportsAST: false,
+    supportsRuntimeAnalysis: false,
+    supportsDataFlow: false,
+    supportsReflection: false,
+    supportsSecretsCorrelation: true,
+    supportsNetworkInspection: false
+  };
+
   metadata: DetectorMetadata = {
     version: '1.0.0',
     author: 'NovoCrypt Security Team',
@@ -28,16 +69,10 @@ export class JwtDetector extends BaseDetector {
     category: 'JSON Web Tokens',
     documentationUrl: 'https://docs.novocrypt.app/detectors/jwt',
     supportedLanguages: this.supportedLanguages,
-    supportedExtensions: this.supportedExtensions
-  };
-
-  capabilities = {
-    id: 'jwt-security',
-    version: '1.0.0',
-    category: ['Authentication', 'Authorization', 'Cryptography'],
-    supportsAST: true,
-    supportsCrossFileCorrelation: true,
-    supportsTelemetry: true
+    supportedExtensions: this.supportedExtensions,
+    capabilities: this.capabilities,
+    languageMatrix: this.languageMatrix,
+    bypassMatrix: this.bypassMatrix
   };
 
   supportedTargets: TargetType[] = ['code', 'config'];
@@ -51,7 +86,8 @@ export class JwtDetector extends BaseDetector {
   private apiUsageAnalyzer = new ApiUsageAnalyzer();
   private libraryAnalyzer = new LibraryFingerprintAnalyzer();
   private bestPracticesAnalyzer = new JwtBestPracticesAnalyzer();
-  protected async executeDetection(context: ScanContext): Promise<ScanFinding[]> {
+
+  protected async executeDetection(context: ScanContext, detectionContext?: DetectionContext): Promise<ScanFinding[]> {
     const findings: ScanFinding[] = [];
     const sourceFile = context.fileName || 'unknown_file';
 
@@ -107,23 +143,27 @@ export class JwtDetector extends BaseDetector {
         const trimmedLine = line.trim();
         if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) return;
 
+        // Use resolved string if template literal or string concatenation was resolved
+        const resolvedItem = detectionContext?.resolvedStrings.get(lineNum);
+        const lineToAnalyze = resolvedItem?.isResolved ? resolvedItem.resolved : trimmedLine;
+
         // Ast compatibility mock
         const astMock = undefined;
 
         // 2. Performance limit: check token length budget
-        if (trimmedLine.length > 8192) {
+        if (lineToAnalyze.length > 8192) {
           return; // skip parsing huge minified lines
         }
 
         // Run sub-analyzers
-        const tokensFound = this.tokenAnalyzer.analyzeLine(trimmedLine, astMock);
-        const signatureIssue = this.signatureAnalyzer.analyzeLine(trimmedLine, astMock);
-        const claimsIssue = this.claimsAnalyzer.analyzeLine(trimmedLine, astMock);
-        const keyIssue = this.keyMgmtAnalyzer.analyzeLine(trimmedLine, astMock);
-        const storageIssue = this.storageAnalyzer.analyzeLine(trimmedLine, astMock);
-        const replayIssue = this.replayAnalyzer.analyzeLine(trimmedLine, astMock);
-        const apiUsageIssue = this.apiUsageAnalyzer.analyzeLine(trimmedLine, astMock);
-        const bestPractice = this.bestPracticesAnalyzer.analyzeLine(trimmedLine, astMock);
+        const tokensFound = this.tokenAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const signatureIssue = this.signatureAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const claimsIssue = this.claimsAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const keyIssue = this.keyMgmtAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const storageIssue = this.storageAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const replayIssue = this.replayAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const apiUsageIssue = this.apiUsageAnalyzer.analyzeLine(lineToAnalyze, astMock);
+        const bestPractice = this.bestPracticesAnalyzer.analyzeLine(lineToAnalyze, astMock);
 
         // 1. Process Key Management & Secret Definitions (Store in cross-file cache)
         if (keyIssue) {

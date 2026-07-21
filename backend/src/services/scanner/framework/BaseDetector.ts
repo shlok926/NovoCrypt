@@ -1,5 +1,6 @@
-import { CryptoDetector, DetectorMetadata, Rule, ScanContext, ScanSharedState, ScanFinding, TargetType, Evidence, DetectorHealth, ConfidenceExplanation } from '../types';
+import { CryptoDetector, DetectorMetadata, Rule, ScanContext, ScanSharedState, ScanFinding, TargetType, Evidence, DetectorHealth, ConfidenceExplanation, DetectionContext } from '../types';
 import { RuleEngine } from '../RuleEngine';
+import { DetectionContextBuilder } from '../utils/context/DetectionContextBuilder';
 import crypto from 'crypto';
 
 export abstract class BaseDetector implements CryptoDetector {
@@ -32,7 +33,7 @@ export abstract class BaseDetector implements CryptoDetector {
   /**
    * The core detection method to be implemented by all concrete detectors.
    */
-  protected abstract executeDetection(context: ScanContext): Promise<ScanFinding[]>;
+  protected abstract executeDetection(context: ScanContext, detectionContext?: DetectionContext): Promise<ScanFinding[]>;
 
   /**
    * Standardized entrypoint for the ScannerEngine.
@@ -42,12 +43,33 @@ export abstract class BaseDetector implements CryptoDetector {
     const actualContext = context instanceof ScanContext 
       ? context 
       : new ScanContext({
-          ...context,
+          ...(context as any),
           sharedState: (context as any).sharedState || BaseDetector.fallbackSharedState
         } as any);
+
+    const detectionContext = DetectionContextBuilder.build(actualContext);
+    const filterMode = actualContext.configuration?.pathFiltering?.mode || 'enterprise';
+
+    // In enterprise path filtering mode, suppress findings on documentation/build files
+    if (filterMode === 'enterprise' && !detectionContext.pathClassification.isProductionFile) {
+      if (detectionContext.pathClassification.category === 'documentation' || detectionContext.pathClassification.category === 'build') {
+        return [];
+      }
+    }
+
     try {
-      const findings = await this.executeDetection(actualContext);
-      
+      const findings = await this.executeDetection(actualContext, detectionContext);
+
+      // In enterprise mode, adjust confidence for test/example files
+      if (filterMode === 'enterprise' && detectionContext.pathClassification.isTestFile) {
+        findings.forEach(f => {
+          f.confidence = Math.max(10, f.confidence - 20);
+          if (f.confidenceExplanation) {
+            f.confidenceExplanation.reason += ' (Reduced: test/fixture path)';
+          }
+        });
+      }
+
       this.executionCount++;
       this.totalRuntime += (performance.now() - start);
       

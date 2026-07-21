@@ -3,9 +3,14 @@ import crypto from 'crypto';
 
 export type TargetType = 'code' | 'url' | 'config' | 'archive';
 
+export type PathFilteringMode = 'enterprise' | 'strict' | 'disabled';
+
 export interface ScanConfiguration {
   maxDepth?: number;
   customPolicies?: Record<string, unknown>;
+  pathFiltering?: {
+    mode: PathFilteringMode;
+  };
 }
 
 export interface ExecutionOptions {
@@ -14,10 +19,81 @@ export interface ExecutionOptions {
   enableTelemetry?: boolean;
 }
 
+export enum SupportLevel {
+  FULL = 'FULL',
+  PARTIAL = 'PARTIAL',
+  NONE = 'NONE'
+}
+
+export enum DetectionSupport {
+  FULL = 'FULL',
+  PARTIAL = 'PARTIAL',
+  NONE = 'NONE',
+  AST_REQUIRED = 'AST_REQUIRED'
+}
+
+export interface LanguageSupport {
+  language: string;
+  supportLevel: SupportLevel;
+  notes?: string;
+}
+
+export interface LanguageSupportMatrix {
+  supportedLanguages: string[];
+  languages: LanguageSupport[];
+}
+
+export interface KnownBypassMatrix {
+  regex: DetectionSupport;
+  templateLiterals: DetectionSupport;
+  stringConcatenation: DetectionSupport;
+  aliases: DetectionSupport;
+  factories: DetectionSupport;
+  reflection: DetectionSupport;
+  dynamicImports: DetectionSupport;
+  unicode: DetectionSupport;
+  base64: DetectionSupport;
+  hex: DetectionSupport;
+  environmentVariables: DetectionSupport;
+  wrapperMethods: DetectionSupport;
+}
+
 export interface ScannerCapabilities {
-  supportsAST: boolean;
-  supportsCrossFileCorrelation: boolean;
-  supportsTelemetry: boolean;
+  supportsRegex?: boolean;
+  supportsCrossFileCorrelation?: boolean;
+  supportsTemplateResolution?: boolean;
+  supportsStaticAnalysis?: boolean;
+  supportsLanguageAwareness?: boolean;
+  supportsAST?: boolean;
+  supportsRuntimeAnalysis?: boolean;
+  supportsDataFlow?: boolean;
+  supportsReflection?: boolean;
+  supportsSecretsCorrelation?: boolean;
+  supportsNetworkInspection?: boolean;
+  supportsTelemetry?: boolean;
+}
+
+export interface PathClassification {
+  isProductionFile: boolean;
+  isTestFile: boolean;
+  isGenerated: boolean;
+  isDocumentation: boolean;
+  category: 'production' | 'test' | 'documentation' | 'example' | 'build' | 'unknown';
+}
+
+export interface ResolvedString {
+  original: string;
+  resolved: string;
+  confidence: number;
+  isResolved: boolean;
+}
+
+export interface DetectionContext {
+  scanContext: ScanContext;
+  pathClassification: PathClassification;
+  resolvedStrings: Map<number, ResolvedString>;
+  language: string;
+  languageSupport?: LanguageSupport;
 }
 
 export interface AstContext {}
@@ -80,7 +156,7 @@ export class ScanContext {
     this.fileName = options.fileName;
     this.language = options.language;
     this.services = options.services || {
-      logger: new Logger('ScanContext'),
+      logger: new Logger({ component: 'ScanContext' }),
       telemetry: TelemetryService
     };
     this.scanId = options.scanId || crypto.randomUUID();
@@ -180,6 +256,9 @@ export interface DetectorMetadata {
   documentationUrl: string;
   supportedLanguages: string[];
   supportedExtensions: string[];
+  capabilities?: ScannerCapabilities;
+  languageMatrix?: LanguageSupportMatrix;
+  bypassMatrix?: KnownBypassMatrix;
 }
 
 export interface CryptoDetector {
@@ -191,6 +270,9 @@ export interface CryptoDetector {
   supportedExtensions: string[];
   metadata: DetectorMetadata;
   supportedTargets: TargetType[];
+  capabilities?: ScannerCapabilities;
+  languageMatrix?: LanguageSupportMatrix;
+  bypassMatrix?: KnownBypassMatrix;
   detect(context: ScanContext): Promise<ScanFinding[]>;
   health(): DetectorHealth;
   initialize(context: ScanContext): Promise<void> | void;

@@ -135,7 +135,7 @@ async function runTests() {
 
   // Test Case 15: Malformed token parsing (base64 candidate segments test)
   const candidateToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c`;
-  const res15 = await scan(candidateToken, 'test.txt', 'config');
+  const res15 = await scan(candidateToken, 'tokens.json', 'config');
   assert(res15.some(f => f.evidence.tokenType === 'JWS'), 'Recognizes full JWS token candidates');
 
   // Test Case 16: JWE recognition (RSA1_5 / dir algorithm check)
@@ -190,7 +190,7 @@ async function runTests() {
   assert(res20.length === 0, 'Comment lines are ignored (false positive suppression)');
 
   // Test Case 21: Capabilities Metadata and AST Interface Verification
-  assert(detector.capabilities.supportsAST === true, 'Capability metadata supportsAST is true');
+  assert(detector.capabilities.supportsAST === false, 'Capability metadata supportsAST is false');
   assert(detector.capabilities.supportsCrossFileCorrelation === true, 'Capability metadata supportsCrossFileCorrelation is true');
 
   // --- SUMMARY ---
