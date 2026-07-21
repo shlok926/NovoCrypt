@@ -51,10 +51,6 @@ export class JwtDetector extends BaseDetector {
   private apiUsageAnalyzer = new ApiUsageAnalyzer();
   private libraryAnalyzer = new LibraryFingerprintAnalyzer();
   private bestPracticesAnalyzer = new JwtBestPracticesAnalyzer();
-
-  // Cross-file correlation cache
-  private static globalSecrets = new Map<string, { file: string; line: number; secretType: SecretClassification }>();
-
   protected async executeDetection(context: ScanContext): Promise<ScanFinding[]> {
     const findings: ScanFinding[] = [];
     const sourceFile = context.fileName || 'unknown_file';
@@ -94,7 +90,9 @@ export class JwtDetector extends BaseDetector {
       let secretSource = '';
       const correlationSources: string[] = [];
 
-      for (const [file, details] of JwtDetector.globalSecrets.entries()) {
+      const globalSecrets = context.sharedState.jwtSecrets;
+
+      for (const [file, details] of globalSecrets.entries()) {
         if (file !== sourceFile) {
           correlatedSecret = true;
           correlationSources.push(`${file}:${details.line}`);
@@ -134,7 +132,7 @@ export class JwtDetector extends BaseDetector {
           if (keyIssue.issue === 'DefaultSecret') secType = 'Default';
           else if (keyIssue.issue === 'WeakSecret') secType = 'Weak';
           
-          JwtDetector.globalSecrets.set(sourceFile, {
+          globalSecrets.set(sourceFile, {
             file: sourceFile,
             line: lineNum,
             secretType: secType

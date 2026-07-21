@@ -1,4 +1,5 @@
 import { AgilityClassification } from './pqc-types';
+import { PQC_REGEX } from '../utils/regex';
 
 export interface AgilityMatch {
   classification: AgilityClassification;
@@ -11,7 +12,7 @@ export class CryptoAgilityAnalyzer {
   public analyzeLine(line: string, astNodes?: any): AgilityMatch | null {
     // 1. Fully Crypto Agile patterns
     // e.g. CryptographicFactory, CryptoProviderRegistry, algorithmProvider.get(), failoverProvider, pluggableKEM
-    const agileRegex = /\b(CryptographicFactory|CryptoProviderRegistry|failoverProvider|pluggableKEM|algorithmProvider)\b/i;
+    const agileRegex = PQC_REGEX.AGILE_FACTORY;
     const agileMatch = agileRegex.exec(line);
     if (agileMatch) {
       return {
@@ -24,7 +25,7 @@ export class CryptoAgilityAnalyzer {
 
     // 2. Semi-Agile patterns
     // e.g. read algorithm from environment variables or configs: process.env.CRYPTO_ALG, config.get('algorithm')
-    const semiAgileRegex = /(?:process\.env\.(?:CRYPTO_ALG|ALGORITHM|CIPHER)|config\.get\(['"`]algorithm['"`]\))/i;
+    const semiAgileRegex = PQC_REGEX.SEMI_AGILE;
     const semiMatch = semiAgileRegex.exec(line);
     if (semiMatch) {
       return {
@@ -36,7 +37,7 @@ export class CryptoAgilityAnalyzer {
     }
 
     // Static Crypto is usually the fallback/default when neither is present in files, but we can detect hardcoded settings to label it
-    const staticCrypto = /Cipher\.getInstance\(\s*["'`](AES|RSA|DES)/i;
+    const staticCrypto = PQC_REGEX.STATIC_CRYPTO;
     const staticMatch = staticCrypto.exec(line);
     if (staticMatch) {
       return {

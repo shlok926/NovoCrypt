@@ -1,4 +1,5 @@
 import { AesAlgorithm } from './aes-types';
+import { AES_REGEX } from '../utils/regex';
 
 export interface AlgorithmMatch {
   algorithm: AesAlgorithm;
@@ -11,7 +12,7 @@ export class AlgorithmAnalyzer {
   public analyzeLine(line: string, astNodes?: any): AlgorithmMatch | null {
     // Recognize AES sizes: 128, 192, 256
     // Match common aliases: aes-128, aes128, aes-192, aes192, aes-256, aes256
-    const aesRegex = /\b(aes)[-_]?(128|192|256)\b/i;
+    const aesRegex = AES_REGEX.ALGORITHM;
     const match = aesRegex.exec(line);
     
     if (match) {
@@ -26,7 +27,7 @@ export class AlgorithmAnalyzer {
     }
 
     // Weak/non-standard key lengths or custom cipher names
-    const weakAesRegex = /\b(aes)[-_]?(64|512|1024)\b/i;
+    const weakAesRegex = AES_REGEX.WEAK_AES;
     const weakMatch = weakAesRegex.exec(line);
     if (weakMatch) {
       const size = parseInt(weakMatch[2], 10);

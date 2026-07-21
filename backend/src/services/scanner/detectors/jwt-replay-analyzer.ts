@@ -1,3 +1,5 @@
+import { JWT_REGEX } from '../utils/regex';
+
 export interface ReplayMatch {
   issue: 'ReplayProtectionMissing';
   api: string;
@@ -9,7 +11,7 @@ export class ReplayProtectionAnalyzer {
   public analyzeLine(line: string, astNodes?: any): ReplayMatch | null {
     // 1. Missing replay parameters in sign configurations
     // Check if key configurations are missing jti, nonce, or state variables
-    const signConfigRegex = /jwt\.sign\(\s*(\{[^}]*\})\s*,\s*[^,]+/i;
+    const signConfigRegex = JWT_REGEX.SIGN_CONFIG;
     const match = signConfigRegex.exec(line);
     if (match) {
       const payloadContent = match[1];

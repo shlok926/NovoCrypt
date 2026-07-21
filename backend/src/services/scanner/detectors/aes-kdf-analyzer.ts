@@ -1,3 +1,5 @@
+import { AES_REGEX } from '../utils/regex';
+
 export interface KdfMatch {
   issue: 'WeakPBKDF2' | 'WeakArgon2' | 'Weakscrypt' | 'PredictableSalt' | 'ReusedSalt' | 'WeakKDF';
   api: string;
@@ -9,8 +11,8 @@ export class KdfAnalyzer {
   public analyzeLine(line: string, astNodes?: any): KdfMatch | null {
     // 1. Weak PBKDF2 Iteration count (recommendation >= 600,000 for SHA-256)
     // Matches e.g., iterations: 1000, 10000, 100000 or pbkdf2(password, salt, 1000)
-    const pbkdf2IterationsRegex = /(?:iterations|iters|iterCount)\s*:\s*\b([1-9]\d{0,4}|[1-5]\d{5})\b/i;
-    const pbkdf2PositionalRegex = /pbkdf2(?:Sync)?\(\s*[^,]+,\s*[^,]+,\s*\b([1-9]\d{0,4}|[1-5]\d{5})\b/i;
+    const pbkdf2IterationsRegex = AES_REGEX.PBKDF2_ITERATIONS;
+    const pbkdf2PositionalRegex = AES_REGEX.PBKDF2_POSITIONAL;
     const iterMatch = pbkdf2IterationsRegex.exec(line) || pbkdf2PositionalRegex.exec(line);
     if (iterMatch) {
       const iters = parseInt(iterMatch[1], 10);
@@ -26,7 +28,7 @@ export class KdfAnalyzer {
 
     // 2. Weak Argon2 id parameters
     // Matches e.g., time: 1 or memoryCost: 4096 (low memory < 16MB / 16384KB)
-    const argon2MemoryRegex = /(?:memoryCost|mCost|memory)\s*:\s*\b([1-9]\d{0,3}|1[0-5]\d{3})\b/i;
+    const argon2MemoryRegex = AES_REGEX.ARGON2_MEMORY;
     const argMatch = argon2MemoryRegex.exec(line);
     if (argMatch) {
       const memory = parseInt(argMatch[1], 10);
@@ -42,7 +44,7 @@ export class KdfAnalyzer {
 
     // 3. Weak scrypt parameters
     // Cost factor N < 16384
-    const scryptNRegex = /(?:costFactor|N|cost)\s*:\s*\b([1-9]\d{0,3}|1[0-5]\d{3})\b/i;
+    const scryptNRegex = AES_REGEX.SCRYPT_N;
     const scryptMatch = scryptNRegex.exec(line);
     if (scryptMatch) {
       const n = parseInt(scryptMatch[1], 10);
@@ -58,7 +60,7 @@ export class KdfAnalyzer {
 
     // 4. Weak KDF hashing algorithm (MD5/SHA1 based derivation)
     // e.g. pbkdf2(..., 'sha1') or HKDF using md5
-    const weakKdfHash = /(?:pbkdf2|hkdf|deriveKey).*['"`](md5|sha1)['"`]/i;
+    const weakKdfHash = AES_REGEX.WEAK_KDF_HASH;
     const weakHashMatch = weakKdfHash.exec(line);
     if (weakHashMatch) {
       return {
@@ -71,7 +73,7 @@ export class KdfAnalyzer {
 
     // 5. Predictable/Static salt
     // e.g. salt = 'static_salt_value' or salt = Buffer.from('abc')
-    const predictableSaltRegex = /(?:salt|saltValue)\s*=\s*["'`]([^"'`]{1,40})["'`]/i;
+    const predictableSaltRegex = AES_REGEX.PREDICTABLE_SALT;
     const saltMatch = predictableSaltRegex.exec(line);
     if (saltMatch) {
       return {

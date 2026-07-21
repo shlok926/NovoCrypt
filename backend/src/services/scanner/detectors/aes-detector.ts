@@ -56,8 +56,7 @@ export class AesDetector extends BaseDetector {
   private libraryAnalyzer = new LibraryFingerprintAnalyzer();
   private bestPracticesAnalyzer = new BestPracticesAnalyzer();
 
-  // Cross-file correlation cache for symmetric keys
-  private static globalKeys = new Map<string, { file: string; line: number; keyType: string }>();
+
 
   protected async executeDetection(context: ScanContext): Promise<ScanFinding[]> {
     const findings: ScanFinding[] = [];
@@ -100,7 +99,8 @@ export class AesDetector extends BaseDetector {
       // Calculate cross-file correlation
       let correlatedKey = false;
       let keySources: string[] = [];
-      for (const [file, details] of AesDetector.globalKeys.entries()) {
+      const globalKeys = context.sharedState.aesKeys;
+      for (const [file, details] of globalKeys.entries()) {
         if (file !== sourceFile) {
           correlatedKey = true;
           keySources.push(`${file}:${details.line}`);
@@ -144,7 +144,7 @@ export class AesDetector extends BaseDetector {
           else if (keyIssue.issue === 'EmbeddedSecret') rule = aesRules.AES020;
 
           // Register in cache
-          AesDetector.globalKeys.set(sourceFile, {
+          globalKeys.set(sourceFile, {
             file: sourceFile,
             line: lineNum,
             keyType: keyIssue.issue

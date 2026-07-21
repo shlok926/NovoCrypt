@@ -1,3 +1,5 @@
+import { JWT_REGEX } from '../utils/regex';
+
 export interface KeyMgmtMatch {
   issue: 'HardcodedSecret' | 'WeakSecret' | 'DefaultSecret' | 'UnsafeJWKS' | 'DuplicateKid' | 'MissingRotation';
   api: string;
@@ -8,8 +10,8 @@ export interface KeyMgmtMatch {
 export class KeyManagementAnalyzer {
   public analyzeLine(line: string, astNodes?: any): KeyMgmtMatch | null {
     // 1. Default Secrets (common placeholders)
-    const defaultSecretRegex = /(secret|temp|placeholder|123456|password|admin|auth_key|jwt_secret_key)\s*["'`]?\s*$/i;
-    const jwtAssignRegex = /(?:jwt_secret|jwtSecret|signingKey|signing_secret|token_secret)\s*=\s*["'`]([^"'`]{1,256})["'`]/i;
+    const defaultSecretRegex = JWT_REGEX.DEFAULT_SECRET;
+    const jwtAssignRegex = JWT_REGEX.ASSIGN_SECRET;
     const assignMatch = jwtAssignRegex.exec(line);
     if (assignMatch) {
       const secretValue = assignMatch[1];
@@ -45,7 +47,7 @@ export class KeyManagementAnalyzer {
 
     // 4. JWKS Configuration issues
     // e.g. jwksUri loading over insecure HTTP endpoint, duplicate kid checks, cache lifetimes
-    const jwksUriRegex = /jwksUri\s*:\s*["'`](http:\/\/[^"'`]+)["'`]/i;
+    const jwksUriRegex = JWT_REGEX.JWKS_URI;
     const jwksMatch = jwksUriRegex.exec(line);
     if (jwksMatch) {
       return {
@@ -57,7 +59,7 @@ export class KeyManagementAnalyzer {
     }
 
     // Unsafe caching in JWKS setups
-    const unsafeCacheRegex = /(jwksRequestsPerMinute|cacheMaxAge|jwksCache)\s*:\s*(?:Infinity|undefined|null|0)/i;
+    const unsafeCacheRegex = JWT_REGEX.UNSAFE_CACHE;
     const cacheMatch = unsafeCacheRegex.exec(line);
     if (cacheMatch) {
       return {

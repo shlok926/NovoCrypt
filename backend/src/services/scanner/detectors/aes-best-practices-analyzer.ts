@@ -1,3 +1,5 @@
+import { AES_REGEX } from '../utils/regex';
+
 export interface BestPracticeMatch {
   practice: string;
   description: string;
@@ -8,7 +10,7 @@ export class BestPracticesAnalyzer {
   public analyzeLine(line: string, astNodes?: any): BestPracticeMatch | null {
     // Audit configurations that conform to safe AEAD structures
     // e.g. using aes-256-gcm or AES/GCM/NoPadding
-    const safeRegex = /['"`](aes-256-gcm|AES\/GCM\/NoPadding)['"`]/i;
+    const safeRegex = AES_REGEX.SAFE_AES;
     const match = safeRegex.exec(line);
     if (match) {
       return {

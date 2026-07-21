@@ -1,3 +1,5 @@
+import { JWT_REGEX } from '../utils/regex';
+
 export interface ApiUsageMatch {
   issue: 'ExpiredTokenAccepted' | 'SignatureBypass';
   api: string;
@@ -8,7 +10,7 @@ export interface ApiUsageMatch {
 export class ApiUsageAnalyzer {
   public analyzeLine(line: string, astNodes?: any): ApiUsageMatch | null {
     // 1. Expiration validation bypass (ignoreExpiration=true)
-    const ignoreExpirationRegex = /(ignoreExpiration\s*:\s*true)/i;
+    const ignoreExpirationRegex = JWT_REGEX.IGNORE_EXPIRATION;
     const ignoreMatch = ignoreExpirationRegex.exec(line);
     if (ignoreMatch) {
       return {
@@ -20,7 +22,7 @@ export class ApiUsageAnalyzer {
     }
 
     // 2. Decode without verification
-    const decodeOnlyRegex = /(jwt\.decode\([^)]*\))/i;
+    const decodeOnlyRegex = JWT_REGEX.DECODE_ONLY;
     const decodeMatch = decodeOnlyRegex.exec(line);
     if (decodeMatch && !line.includes('verify')) {
       return {

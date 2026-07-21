@@ -1,4 +1,5 @@
 import { PqcAlgorithm } from './pqc-types';
+import { PQC_REGEX } from '../utils/regex';
 
 export interface PqcMatch {
   algorithm: PqcAlgorithm;
@@ -13,7 +14,7 @@ export class PqcAlgorithmAnalyzer {
   public analyzeLine(line: string, astNodes?: any): PqcMatch | null {
     // 1. ML-KEM / Kyber
     // Matches: ML-KEM-512, ML-KEM-768, ML-KEM-1024, Kyber768, Kyber-768, ML_KEM_768
-    const mlkemRegex = /(?:\b|_)(ml[-_]?kem|kyber)[-_]?(512|768|1024)(?:\b|_)/i;
+    const mlkemRegex = PQC_REGEX.ML_KEM;
     const mlkemMatch = mlkemRegex.exec(line);
     if (mlkemMatch) {
       const level = mlkemMatch[2] === '512' ? 1 : (mlkemMatch[2] === '768' ? 3 : 5);
@@ -29,7 +30,7 @@ export class PqcAlgorithmAnalyzer {
 
     // 2. ML-DSA / Dilithium
     // Matches: ML-DSA-44, ML-DSA-65, ML-DSA-87, Dilithium2, Dilithium3, Dilithium5, ML_DSA_65
-    const mldsaRegex = /(?:\b|_)(ml[-_]?dsa|dilithium)[-_]?(44|65|87|2|3|5)(?:\b|_)/i;
+    const mldsaRegex = PQC_REGEX.ML_DSA;
     const mldsaMatch = mldsaRegex.exec(line);
     if (mldsaMatch) {
       let paramSet = mldsaMatch[0];
@@ -50,7 +51,7 @@ export class PqcAlgorithmAnalyzer {
 
     // 3. SLH-DSA / SPHINCS+ / SPHINCS_plus
     // Matches: SLH-DSA, SPHINCS+, SPHINCS_plus
-    const slhdsaRegex = /(?:\b|_)(slh[-_]?dsa|sphincs\+|sphincs[-_]plus)(?:\b|_)/i;
+    const slhdsaRegex = PQC_REGEX.SLH_DSA;
     const slhdsaMatch = slhdsaRegex.exec(line);
     if (slhdsaMatch) {
       return {

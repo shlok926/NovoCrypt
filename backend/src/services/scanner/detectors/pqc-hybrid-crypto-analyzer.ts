@@ -1,4 +1,5 @@
 import { HybridStatus } from './pqc-types';
+import { PQC_REGEX } from '../utils/regex';
 
 export interface HybridMatch {
   hybridStatus: HybridStatus;
@@ -10,7 +11,7 @@ export interface HybridMatch {
 export class HybridCryptoAnalyzer {
   public analyzeLine(line: string, astNodes?: any): HybridMatch | null {
     // Matches hybrid key exchanges: X25519_MLKEM768, x25519_kyber768, secp256r1_kyber768, hybridKex
-    const hybridTlsRegex = /(?:\b|_)(x25519_mlkem768|x25519_kyber768|secp256r1_kyber768|p256_kyber768|hybrid[-_]kem|hybridKex)(?:\b|_)/i;
+    const hybridTlsRegex = PQC_REGEX.HYBRID_TLS;
     const hybridMatch = hybridTlsRegex.exec(line);
     if (hybridMatch) {
       return {
@@ -22,7 +23,7 @@ export class HybridCryptoAnalyzer {
     }
 
     // Combined indicators: ECDH + ML-KEM, RSA + Kyber, composite-signature
-    const compositeRegex = /(?:\b|_)(composite|dual|hybrid)(?:\b|_).*(?:\b|_)(ml[-_]?kem|kyber|ml[-_]?dsa|dilithium)(?:\b|_)/i;
+    const compositeRegex = PQC_REGEX.COMPOSITE;
     const compositeMatch = compositeRegex.exec(line);
     if (compositeMatch) {
       return {

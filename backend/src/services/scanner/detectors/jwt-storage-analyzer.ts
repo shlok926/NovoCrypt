@@ -1,3 +1,5 @@
+import { JWT_REGEX } from '../utils/regex';
+
 export interface StorageMatch {
   issue: 'LocalStorageUsage' | 'CookieSecurityMisconfiguration';
   api: string;
@@ -8,7 +10,7 @@ export interface StorageMatch {
 export class StorageAnalyzer {
   public analyzeLine(line: string, astNodes?: any): StorageMatch | null {
     // 1. LocalStorage / SessionStorage usage storing JWT tokens
-    const localStorageRegex = /(localStorage|sessionStorage)\.setItem\(\s*["'`](jwt|token|access_token|id_token|refresh_token)["'`](?:\s*,)?/i;
+    const localStorageRegex = JWT_REGEX.LOCAL_STORAGE;
     const storageMatch = localStorageRegex.exec(line);
     if (storageMatch) {
       return {
@@ -21,7 +23,7 @@ export class StorageAnalyzer {
 
     // 2. Cookie Security Misconfigurations
     // e.g. res.cookie('token', token, { ... }) without httpOnly: true or secure: true
-    const cookieRegex = /res\.cookie\(\s*["'`](?:jwt|token|access_token)["'`](\s*,[^)]+)?\)/i;
+    const cookieRegex = JWT_REGEX.COOKIE;
     if (cookieRegex.test(line)) {
       const missingHttpOnly = !line.includes('httpOnly: true');
       const missingSecure = !line.includes('secure: true');

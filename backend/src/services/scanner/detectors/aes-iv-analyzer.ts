@@ -1,3 +1,5 @@
+import { AES_REGEX } from '../utils/regex';
+
 export interface IvMatch {
   issue: 'StaticIV' | 'ZeroIV' | 'ConstantNonce';
   api: string;
@@ -9,7 +11,7 @@ export class IVAnalyzer {
   public analyzeLine(line: string, astNodes?: any): IvMatch | null {
     // 1. Zero IV validation
     // e.g. iv = Buffer.alloc(16), iv = new Uint8Array(12), iv = [0, 0, 0...]
-    const zeroIvRegex = /(?:iv|nonce)\s*=\s*(?:Buffer\.alloc\(\s*\d+\s*\)|new\s+Uint8Array\(\s*\d+\s*\)|\[\s*0\s*(?:,\s*0\s*)*\])/i;
+    const zeroIvRegex = AES_REGEX.ZERO_IV;
     const zeroMatch = zeroIvRegex.exec(line);
     if (zeroMatch) {
       return {
@@ -22,7 +24,7 @@ export class IVAnalyzer {
 
     // 2. Static / Hardcoded IV assignment
     // e.g. iv = 'static_iv_value' or const iv = Buffer.from('abc') or iv = '0000000000000000'
-    const staticIvRegex = /(?:iv|nonce)\s*=\s*(?:["'`]([^"'`]{4,64})["'`]|Buffer\.from\(\s*["'`]([^"'`]+)["'`]\s*\))/i;
+    const staticIvRegex = AES_REGEX.STATIC_IV;
     const staticMatch = staticIvRegex.exec(line);
     if (staticMatch) {
       const val = staticMatch[1] || staticMatch[2];
@@ -39,7 +41,7 @@ export class IVAnalyzer {
 
     // 3. Constant Nonce / predictability
     // e.g. const nonce = 123 or nonce = 'constant'
-    const constantNonceRegex = /(?:nonce|ivVal)\s*=\s*(?:\d+|["'`](?:fixed|static|const|nonce)["'`])/i;
+    const constantNonceRegex = AES_REGEX.CONSTANT_NONCE;
     const nonceMatch = constantNonceRegex.exec(line);
     if (nonceMatch) {
       return {

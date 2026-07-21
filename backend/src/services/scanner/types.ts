@@ -1,10 +1,116 @@
+import { Logger, TelemetryService } from '../observability';
+import crypto from 'crypto';
+
 export type TargetType = 'code' | 'url' | 'config' | 'archive';
 
-export interface ScanContext {
-  targetType: TargetType;
-  target: string; // The code content, URL, or filepath
-  fileName?: string;
-  language?: string;
+export interface ScanConfiguration {
+  maxDepth?: number;
+  customPolicies?: Record<string, unknown>;
+}
+
+export interface ExecutionOptions {
+  timeoutMs?: number;
+  maxFileSize?: number;
+  enableTelemetry?: boolean;
+}
+
+export interface ScannerCapabilities {
+  supportsAST: boolean;
+  supportsCrossFileCorrelation: boolean;
+  supportsTelemetry: boolean;
+}
+
+export interface AstContext {}
+
+export class ScanSharedState {
+  public readonly jwtSecrets = new Map<string, { file: string; line: number; secretType: string }>();
+  public readonly aesKeys = new Map<string, { file: string; line: number; keyType: string }>();
+  public readonly pqcClassical = new Map<string, { file: string; line: number; alg: string }>();
+  public readonly metadata = new Map<string, unknown>();
+
+  public clear(): void {
+    this.jwtSecrets.clear();
+    this.aesKeys.clear();
+    this.pqcClassical.clear();
+    this.metadata.clear();
+  }
+}
+
+export interface ScanContextMetadata {
+  frameworkVersion: string;
+  scanVersion: string;
+  detectorApiVersion: string;
+}
+
+export interface ScanServices {
+  logger: Logger;
+  telemetry: typeof TelemetryService;
+}
+
+export class ScanContext {
+  public readonly scanId: string;
+  public readonly targetType: TargetType;
+  public readonly target: string;
+  public readonly fileName?: string;
+  public readonly language?: string;
+  public readonly services: ScanServices;
+  public readonly metadata: ScanContextMetadata;
+  public readonly configuration: ScanConfiguration;
+  
+  public readonly sharedState: ScanSharedState;
+  public executionOptions: ExecutionOptions;
+  public capabilities: ScannerCapabilities;
+  public ast?: AstContext;
+
+  constructor(options: {
+    targetType: TargetType;
+    target: string;
+    fileName?: string;
+    language?: string;
+    scanId?: string;
+    sharedState?: ScanSharedState;
+    configuration?: ScanConfiguration;
+    executionOptions?: ExecutionOptions;
+    capabilities?: ScannerCapabilities;
+    metadata?: ScanContextMetadata;
+    services?: ScanServices;
+  }) {
+    this.targetType = options.targetType;
+    this.target = options.target;
+    this.fileName = options.fileName;
+    this.language = options.language;
+    this.services = options.services || {
+      logger: new Logger('ScanContext'),
+      telemetry: TelemetryService
+    };
+    this.scanId = options.scanId || crypto.randomUUID();
+    this.configuration = options.configuration || {};
+    
+    this.executionOptions = options.executionOptions || {
+      timeoutMs: 250,
+      maxFileSize: 100 * 1024,
+      enableTelemetry: true
+    };
+    
+    this.capabilities = options.capabilities || {
+      supportsAST: false, 
+      supportsCrossFileCorrelation: true,
+      supportsTelemetry: true
+    };
+    
+    this.metadata = options.metadata || {
+      frameworkVersion: '1.0.0',
+      scanVersion: '1.0.0',
+      detectorApiVersion: 'v1'
+    };
+    
+    this.ast = undefined;
+    this.sharedState = options.sharedState || new ScanSharedState();
+  }
+
+  public getAst(file: string): AstContext | undefined { 
+    return undefined; 
+  }
 }
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
@@ -87,6 +193,10 @@ export interface CryptoDetector {
   supportedTargets: TargetType[];
   detect(context: ScanContext): Promise<ScanFinding[]>;
   health(): DetectorHealth;
+  initialize(context: ScanContext): Promise<void> | void;
+  dispose(context: ScanContext): Promise<void> | void;
+  onRegister(): Promise<void> | void;
+  onUnregister(): Promise<void> | void;
 }
 
 export interface ScanMetrics {

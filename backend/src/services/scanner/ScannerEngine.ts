@@ -1,4 +1,4 @@
-import { CryptoDetector, ScanContext, ScanResultData, ScanFinding, TargetType } from './types';
+import { CryptoDetector, ScanContext, ScanResultData, ScanFinding, TargetType, ScanSharedState } from './types';
 import { RiskEngine } from './RiskEngine';
 import { detectorRegistry } from './framework/DetectorRegistry';
 import { Logger, TelemetryService } from '../observability';
@@ -11,36 +11,75 @@ export class ScannerEngine {
     detectorRegistry.register(detector);
   }
 
-  public async runScan(context: ScanContext, traceId?: string): Promise<ScanResultData> {
+  public async runScan(rawContext: ScanContext | any, traceId?: string): Promise<ScanResultData> {
     const allFindings: ScanFinding[] = [];
-    const logger = new Logger({ traceId, component: 'ScannerEngine', targetType: context.targetType });
+    const logger = new Logger({ traceId, component: 'ScannerEngine', targetType: rawContext.targetType });
+    const services = { logger, telemetry: TelemetryService };
     const engineStart = performance.now();
 
     logger.info('Starting legacy runScan');
 
+    // Wrap/Instantiate real ScanContext class instance
+    const context = rawContext instanceof ScanContext
+      ? rawContext
+      : new ScanContext({
+          targetType: rawContext.targetType,
+          target: rawContext.target,
+          fileName: rawContext.fileName,
+          language: rawContext.language,
+          scanId: (rawContext as any).scanId,
+          sharedState: (rawContext as any).sharedState,
+          configuration: (rawContext as any).configuration,
+          services
+        });
+
     // Filter detectors that support the target type
     const activeDetectors = detectorRegistry.getActiveDetectors(context.targetType);
 
-    // Run detectors in parallel with performance profiling
-    const scanPromises = activeDetectors.map(async (detector) => {
+    // Initialize detectors
+    for (const detector of activeDetectors) {
       try {
-        const start = performance.now();
-        const findings = await detector.detect(context);
-        const duration = performance.now() - start;
-        
-        TelemetryService.recordHistogram(`detector.runtime.ms`, duration, { detectorId: detector.id });
-        if (duration > 1000) logger.warn(`Detector ${detector.id} took ${duration.toFixed(2)}ms`, { file: context.fileName });
-        
-        return findings;
-      } catch (error) {
-        logger.error(`Detector '${detector.id}' failed during scan`, error, { detectorId: detector.id });
-        TelemetryService.recordCounter('detector.failure', 1, { detectorId: detector.id });
-        return [];
+        if (typeof detector.initialize === 'function') {
+          await detector.initialize(context);
+        }
+      } catch (err) {
+        logger.error(`Failed to initialize detector ${detector.id}`, err);
       }
-    });
+    }
 
-    const results = await Promise.all(scanPromises);
-    results.forEach(findings => allFindings.push(...findings));
+    try {
+      // Run detectors in parallel with performance profiling
+      const scanPromises = activeDetectors.map(async (detector) => {
+        try {
+          const start = performance.now();
+          const findings = await detector.detect(context);
+          const duration = performance.now() - start;
+          
+          TelemetryService.recordHistogram(`detector.runtime.ms`, duration, { detectorId: detector.id });
+          if (duration > 1000) logger.warn(`Detector ${detector.id} took ${duration.toFixed(2)}ms`, { file: context.fileName });
+          
+          return findings;
+        } catch (error) {
+          logger.error(`Detector '${detector.id}' failed during scan`, error, { detectorId: detector.id });
+          TelemetryService.recordCounter('detector.failure', 1, { detectorId: detector.id });
+          return [];
+        }
+      });
+
+      const results = await Promise.all(scanPromises);
+      results.forEach(findings => allFindings.push(...findings));
+    } finally {
+      // Dispose detectors
+      for (const detector of activeDetectors) {
+        try {
+          if (typeof detector.dispose === 'function') {
+            await detector.dispose(context);
+          }
+        } catch (err) {
+          logger.error(`Failed to dispose detector ${detector.id}`, err);
+        }
+      }
+    }
 
     // Deduplicate findings
     const deduplicatedFindings = this.deduplicateFindings(allFindings);
@@ -65,43 +104,80 @@ export class ScannerEngine {
     const allFindings: ScanFinding[] = [];
     const fs = await import('fs/promises');
     const logger = new Logger({ traceId, component: 'ScannerEngine', targetType: baseTargetType });
+    const services = { logger, telemetry: TelemetryService };
+    const sharedState = new ScanSharedState();
+
     const engineStart = performance.now();
-
     logger.info('Starting runEnterpriseScan');
-    let filesScanned = 0;
 
-    // Run detectors sequentially on each file to prevent OOM
-    for await (const filePath of fileIterator) {
+    // Get active detectors for initialization
+    const activeDetectors = detectorRegistry.getActiveDetectors('code');
+
+    // Build parent/dummy ScanContext to initialize detectors
+    const initContext = new ScanContext({
+      targetType: baseTargetType,
+      target: '',
+      sharedState,
+      services
+    });
+
+    for (const detector of activeDetectors) {
       try {
-        // Only read files up to 5MB to prevent memory bloat on massive binaries
-        const stat = await fs.stat(filePath);
-        if (stat.size > 5 * 1024 * 1024) continue; 
-        
-        const content = await fs.readFile(filePath, 'utf-8');
-        filesScanned++;
-        
-        const context: ScanContext = {
-          targetType: 'code',
-          target: content,
-          fileName: filePath,
-          language: this.inferLanguage(filePath)
-        };
-
-        const activeDetectors = detectorRegistry.getActiveDetectors('code');
-
-        for (const detector of activeDetectors) {
-           const start = performance.now();
-           const findings = await detector.detect(context);
-           const duration = performance.now() - start;
-           
-           TelemetryService.recordHistogram('detector.runtime.ms', duration, { detectorId: detector.id });
-           
-           if (duration > 500) logger.warn(`Detector ${detector.id} took ${duration.toFixed(2)}ms`, { file: filePath });
-           allFindings.push(...findings);
+        if (typeof detector.initialize === 'function') {
+          await detector.initialize(initContext);
         }
       } catch (err) {
-        logger.error(`Failed to scan file ${filePath}`, err);
-        TelemetryService.recordCounter('scan.file.failure', 1);
+        logger.error(`Failed to initialize detector ${detector.id}`, err);
+      }
+    }
+
+    let filesScanned = 0;
+
+    try {
+      // Run detectors sequentially on each file to prevent OOM
+      for await (const filePath of fileIterator) {
+        try {
+          // Only read files up to 5MB to prevent memory bloat on massive binaries
+          const stat = await fs.stat(filePath);
+          if (stat.size > 5 * 1024 * 1024) continue; 
+          
+          const content = await fs.readFile(filePath, 'utf-8');
+          filesScanned++;
+          
+          const context = new ScanContext({
+            targetType: 'code',
+            target: content,
+            fileName: filePath,
+            language: this.inferLanguage(filePath),
+            sharedState,
+            services
+          });
+
+          for (const detector of activeDetectors) {
+             const start = performance.now();
+             const findings = await detector.detect(context);
+             const duration = performance.now() - start;
+             
+             TelemetryService.recordHistogram('detector.runtime.ms', duration, { detectorId: detector.id });
+             
+             if (duration > 500) logger.warn(`Detector ${detector.id} took ${duration.toFixed(2)}ms`, { file: filePath });
+             allFindings.push(...findings);
+          }
+        } catch (err) {
+          logger.error(`Failed to scan file ${filePath}`, err);
+          TelemetryService.recordCounter('scan.file.failure', 1);
+        }
+      }
+    } finally {
+      // Dispose detectors
+      for (const detector of activeDetectors) {
+        try {
+          if (typeof detector.dispose === 'function') {
+            await detector.dispose(initContext);
+          }
+        } catch (err) {
+          logger.error(`Failed to dispose detector ${detector.id}`, err);
+        }
       }
     }
 

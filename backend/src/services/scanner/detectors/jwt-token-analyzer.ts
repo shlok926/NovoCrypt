@@ -1,4 +1,5 @@
 import { TokenType } from './jwt-types';
+import { JWT_REGEX } from '../utils/regex';
 
 export interface TokenMatch {
   type: TokenType;
@@ -15,7 +16,7 @@ export class TokenAnalyzer {
     
     // Regex to match candidate JWT/JWS (3 segments of base64url) or JWE (5 segments of base64url)
     // Matches strings in code, variables, configs
-    const jwtCandidateRegex = /\b([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)(?:\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+))?\b/g;
+    const jwtCandidateRegex = JWT_REGEX.CANDIDATE;
     
     let match;
     while ((match = jwtCandidateRegex.exec(line)) !== null) {
@@ -74,7 +75,7 @@ export class TokenAnalyzer {
 
     // Direct string keyword scans for configuration parameters (e.g. alg: "none", "alg": "none")
     if (results.length === 0) {
-      const noneConfigRegex = /["'`]?alg["'`]?\s*:\s*["'`]none["'`]/i;
+      const noneConfigRegex = JWT_REGEX.NONE_CONFIG;
       if (noneConfigRegex.test(line)) {
         results.push({
           type: 'Unsecured',

@@ -1,3 +1,5 @@
+import { PQC_REGEX } from '../utils/regex';
+
 export interface BestPracticeMatch {
   practice: string;
   description: string;
@@ -8,7 +10,7 @@ export class BestPracticesAnalyzer {
   public analyzeLine(line: string, astNodes?: any): BestPracticeMatch | null {
     // Audit configurations that conform to safe PQC agility / standards
     // e.g. using ml-kem-768 or ml-dsa-65 or secure hybrid KEMs
-    const safeRegex = /['"`](ml-kem-768|ml-dsa-65|x25519_mlkem768)['"`]/i;
+    const safeRegex = PQC_REGEX.SAFE_PQC;
     const match = safeRegex.exec(line);
     if (match) {
       return {

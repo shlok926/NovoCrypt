@@ -1,8 +1,9 @@
-import { CryptoDetector, DetectorMetadata, Rule, ScanContext, ScanFinding, TargetType, Evidence, DetectorHealth, ConfidenceExplanation } from '../types';
+import { CryptoDetector, DetectorMetadata, Rule, ScanContext, ScanSharedState, ScanFinding, TargetType, Evidence, DetectorHealth, ConfidenceExplanation } from '../types';
 import { RuleEngine } from '../RuleEngine';
 import crypto from 'crypto';
 
 export abstract class BaseDetector implements CryptoDetector {
+  private static fallbackSharedState = new ScanSharedState();
   public abstract id: string;
   public abstract name: string;
   public abstract version: string;
@@ -21,6 +22,14 @@ export abstract class BaseDetector implements CryptoDetector {
   private executionCount = 0;
 
   /**
+   * Lifecycle hooks with default no-op implementations.
+   */
+  public initialize(context: ScanContext): Promise<void> | void {}
+  public dispose(context: ScanContext): Promise<void> | void {}
+  public onRegister(): Promise<void> | void {}
+  public onUnregister(): Promise<void> | void {}
+
+  /**
    * The core detection method to be implemented by all concrete detectors.
    */
   protected abstract executeDetection(context: ScanContext): Promise<ScanFinding[]>;
@@ -30,8 +39,14 @@ export abstract class BaseDetector implements CryptoDetector {
    */
   public async detect(context: ScanContext): Promise<ScanFinding[]> {
     const start = performance.now();
+    const actualContext = context instanceof ScanContext 
+      ? context 
+      : new ScanContext({
+          ...context,
+          sharedState: (context as any).sharedState || BaseDetector.fallbackSharedState
+        } as any);
     try {
-      const findings = await this.executeDetection(context);
+      const findings = await this.executeDetection(actualContext);
       
       this.executionCount++;
       this.totalRuntime += (performance.now() - start);
@@ -41,7 +56,7 @@ export abstract class BaseDetector implements CryptoDetector {
       this.errorCount++;
       this.lastError = error instanceof Error ? error.message : String(error);
       
-      console.error(`[Detector Error] ${this.id} failed on target ${context.fileName || 'unknown'}:`, error);
+      console.error(`[Detector Error] ${this.id} failed on target ${actualContext.fileName || 'unknown'}:`, error);
       return [];
     }
   }

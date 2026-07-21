@@ -1,3 +1,5 @@
+import { JWT_REGEX } from '../utils/regex';
+
 export interface SignatureAuditMatch {
   issue: 'AlgorithmConfusion' | 'DisabledVerification' | 'SignatureBypass' | 'UnsafeVerifyCallback';
   api: string;
@@ -9,7 +11,7 @@ export class SignatureAnalyzer {
   public analyzeLine(line: string, astNodes?: any): SignatureAuditMatch | null {
     // 1. HS/RS confusion indicator: verify called without algorithm restrictions, or algorithms accepting user input
     // e.g., jwt.verify(token, publicKey) without specifying algorithms parameter
-    const verifyWithoutAlg = /jwt\.verify\(\s*[^,]+,\s*[^,]+(?:\s*\))|jwt\.verify\(\s*[^,]+,\s*[^,]+,\s*(?:function|\([^)]*\)\s*=>)/i;
+    const verifyWithoutAlg = JWT_REGEX.VERIFY_WITHOUT_ALG;
     if (verifyWithoutAlg.test(line) && !line.includes('algorithms') && !line.includes('Algorithm')) {
       return {
         issue: 'AlgorithmConfusion',
@@ -21,7 +23,7 @@ export class SignatureAnalyzer {
 
     // 2. Disabled verification
     // e.g. verify(false) or ignoreSignature=true or similar options
-    const disabledVerification = /(verify\(\s*false\b|ignoreSignature\s*:\s*true)/i;
+    const disabledVerification = JWT_REGEX.DISABLED_VERIFY;
     const disabledMatch = disabledVerification.exec(line);
     if (disabledMatch) {
       return {
@@ -33,7 +35,7 @@ export class SignatureAnalyzer {
     }
 
     // 3. Signature Bypass (e.g. decode used instead of verify)
-    const signatureBypass = /(jwt\.decode\(\s*[^,]+[^)]*\))/i;
+    const signatureBypass = JWT_REGEX.SIGNATURE_BYPASS;
     const bypassMatch = signatureBypass.exec(line);
     if (bypassMatch) {
       // Make sure it's not a verify check that also decodes
@@ -48,7 +50,7 @@ export class SignatureAnalyzer {
     }
 
     // 4. Unsafe Verify Callbacks (e.g. custom key retrieval functions that dynamically accept algorithms from token headers)
-    const unsafeCallback = /(function\s*\(\s*header\s*,\s*callback\s*\)|getKey\s*=\s*\(header\s*,\s*callback\)|algorithms\s*:\s*\[\s*header\.alg\s*\])/i;
+    const unsafeCallback = JWT_REGEX.UNSAFE_CALLBACK;
     const callbackMatch = unsafeCallback.exec(line);
     if (callbackMatch) {
       return {

@@ -11,6 +11,13 @@ export class DetectorRegistry {
       throw new Error(`DetectorRegistry: Detector with ID '${detector.id}' is already registered.`);
     }
     this.detectors.set(detector.id, detector);
+    if (typeof detector.onRegister === 'function') {
+      try {
+        detector.onRegister();
+      } catch (err) {
+        console.error(`[DetectorRegistry] Failed to invoke onRegister for ${detector.id}:`, err);
+      }
+    }
   }
 
   /**
@@ -40,7 +47,20 @@ export class DetectorRegistry {
    * Unregister a detector (useful for dynamic plugin unloading).
    */
   public unregister(id: string): boolean {
-    return this.detectors.delete(id);
+    const detector = this.detectors.get(id);
+    if (!detector) return false;
+    
+    const deleted = this.detectors.delete(id);
+    if (deleted) {
+      if (typeof detector.onUnregister === 'function') {
+        try {
+          detector.onUnregister();
+        } catch (err) {
+          console.error(`[DetectorRegistry] Failed to invoke onUnregister for ${id}:`, err);
+        }
+      }
+    }
+    return deleted;
   }
 }
 

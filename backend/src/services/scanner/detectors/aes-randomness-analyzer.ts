@@ -1,3 +1,5 @@
+import { AES_REGEX } from '../utils/regex';
+
 export interface RandomMatch {
   issue: 'WeakRandomness';
   api: string;
@@ -9,7 +11,7 @@ export class RandomnessAnalyzer {
   public analyzeLine(line: string, astNodes?: any): RandomMatch | null {
     // Audit weak randomness sources (e.g. Math.random(), java.util.Random, Python's random module)
     // Matches: Math.random(), random.random(), random.randint(), new Random()
-    const weakRandomRegex = /\b(Math\.random\(\)|random\.random\(\)|random\.randint\(\)|new\s+Random\(\))/i;
+    const weakRandomRegex = AES_REGEX.WEAK_RANDOM;
     const match = weakRandomRegex.exec(line);
     if (match) {
       return {

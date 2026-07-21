@@ -1,3 +1,5 @@
+import { AES_REGEX } from '../utils/regex';
+
 export interface ApiUsageMatch {
   issue: 'DeprecatedAPI' | 'CipherContextReuse';
   api: string;
@@ -9,7 +11,7 @@ export class ApiUsageAnalyzer {
   public analyzeLine(line: string, astNodes?: any): ApiUsageMatch | null {
     // 1. Deprecated Cryptographic API Usage
     // Matches legacy createCipher (which defaults to weak MD5 key derivation/no IV) or weak DES/3DES
-    const deprecatedApiRegex = /\b(createCipher\s*\(|DES\b|3DES\b|RC4\b)/i;
+    const deprecatedApiRegex = AES_REGEX.DEPRECATED_API;
     const deprecatedMatch = deprecatedApiRegex.exec(line);
     if (deprecatedMatch) {
       return {

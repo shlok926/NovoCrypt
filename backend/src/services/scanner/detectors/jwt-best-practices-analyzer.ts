@@ -1,3 +1,5 @@
+import { JWT_REGEX } from '../utils/regex';
+
 export interface BestPracticeMatch {
   practice: string;
   description: string;
@@ -8,7 +10,7 @@ export class JwtBestPracticesAnalyzer {
   public analyzeLine(line: string, astNodes?: any): BestPracticeMatch | null {
     // Audit configurations that conform to good rotation or short access windows
     // e.g. expiresIn set to '15m', '30m', '1h'
-    const shortLivedRegex = /expiresIn\s*:\s*["'`](15m|30m|1h|900|1800|3600)["'`]/i;
+    const shortLivedRegex = JWT_REGEX.SHORT_LIVED;
     const match = shortLivedRegex.exec(line);
     if (match) {
       return {

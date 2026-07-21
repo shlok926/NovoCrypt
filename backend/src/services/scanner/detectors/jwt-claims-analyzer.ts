@@ -1,3 +1,5 @@
+import { JWT_REGEX } from '../utils/regex';
+
 export interface ClaimsMatch {
   missingClaim: 'exp' | 'iss' | 'aud' | 'jti';
   api: string;
@@ -10,7 +12,7 @@ export class ClaimsAnalyzer {
     // 1. Missing expiration check in configuration objects
     // If sign API is configured without exp/expiresIn properties
     // e.g. jwt.sign({ sub: userId }, secret)
-    const signCall = /jwt\.sign\(\s*(\{[^}]*\})\s*,\s*[^,]+(?!.*expiresIn)/i;
+    const signCall = JWT_REGEX.SIGN_WITHOUT_EXP;
     const signMatch = signCall.exec(line);
     if (signMatch && !line.includes('expiresIn') && !line.includes('exp')) {
       return {
@@ -23,7 +25,7 @@ export class ClaimsAnalyzer {
 
     // 2. Scan configuration objects to flag long-lived tokens
     // e.g., expiresIn: '365d', '30d', '1y'
-    const longLivedRegex = /expiresIn\s*:\s*["'`](\d+(?:d|y|w|h)|never)["'`]/i;
+    const longLivedRegex = JWT_REGEX.LONG_LIVED;
     const longLivedMatch = longLivedRegex.exec(line);
     if (longLivedMatch) {
       const val = longLivedMatch[1];

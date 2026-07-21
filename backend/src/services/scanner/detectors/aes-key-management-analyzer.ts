@@ -1,3 +1,5 @@
+import { AES_REGEX } from '../utils/regex';
+
 export interface KeyMgmtMatch {
   issue: 'HardcodedKey' | 'DevelopmentKey' | 'EmbeddedSecret';
   api: string;
@@ -10,14 +12,14 @@ export class KeyManagementAnalyzer {
     // 1. Hardcoded AES Key assignment
     // Match keys defined as string literals or hex assignments:
     // e.g. const aesKey = 'this_is_a_hardcoded_key' or secretKey = 'abc'
-    const keyAssignRegex = /(?:aesKey|aes_key|secretKey|secret_key|crypto_key|cipherKey|cipher_key)\s*=\s*["'`]([^"'`]{1,256})["'`]/i;
+    const keyAssignRegex = AES_REGEX.KEY_ASSIGN;
     const assignMatch = keyAssignRegex.exec(line);
     
     if (assignMatch) {
       const keyVal = assignMatch[1];
       
       // Development keys check
-      const devKeyRegex = /(test|demo|dev|dummy|temp|placeholder|123456|password|debug)/i;
+      const devKeyRegex = AES_REGEX.DEV_KEY;
       if (devKeyRegex.test(keyVal)) {
         return {
           issue: 'DevelopmentKey',
@@ -40,7 +42,7 @@ export class KeyManagementAnalyzer {
 
     // 2. Embedded Cryptographic Secrets in configuration structures
     // Matches e.g. "aes_key": "some_value" or aes_key = "value" inside json/yaml
-    const embeddedSecretRegex = /["'`]?(?:aesKey|aes_key|symmetric_key)["'`]?\s*[:=]\s*["'`]([^"'`]+)["'`]/i;
+    const embeddedSecretRegex = AES_REGEX.EMBEDDED_SECRET;
     const embeddedMatch = embeddedSecretRegex.exec(line);
     if (embeddedMatch && !embeddedMatch[1].includes('env') && embeddedMatch[1].length > 10) {
       return {

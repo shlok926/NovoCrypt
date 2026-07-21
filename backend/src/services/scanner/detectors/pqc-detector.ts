@@ -58,8 +58,7 @@ export class PqcDetector extends BaseDetector {
   private libraryAnalyzer = new LibraryFingerprintAnalyzer();
   private bestPracticesAnalyzer = new BestPracticesAnalyzer();
 
-  // Cross-file correlation cache for classical crypto
-  private static globalClassical = new Map<string, { file: string; line: number; alg: string }>();
+
 
   protected async executeDetection(context: ScanContext): Promise<ScanFinding[]> {
     const findings: ScanFinding[] = [];
@@ -123,7 +122,8 @@ export class PqcDetector extends BaseDetector {
       // Static Cache Cross-File Correlation
       let correlatedClassical = false;
       let classicalSources: string[] = [];
-      for (const [file, details] of PqcDetector.globalClassical.entries()) {
+      const globalClassical = context.sharedState.pqcClassical;
+      for (const [file, details] of globalClassical.entries()) {
         if (file !== sourceFile) {
           correlatedClassical = true;
           classicalSources.push(`${file}:${details.line}`);
@@ -266,7 +266,7 @@ export class PqcDetector extends BaseDetector {
             }
 
             // Cache in global classical map
-            PqcDetector.globalClassical.set(sourceFile, {
+            globalClassical.set(sourceFile, {
               file: sourceFile,
               line: lineNum,
               alg: classical.algorithm
