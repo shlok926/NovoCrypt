@@ -31,9 +31,8 @@ async function runPhase4Tests() {
   assert(truncationMeta !== undefined, 'Truncation metadata is attached to findings');
   assert.strictEqual(truncationMeta.truncated, true, 'truncated is true');
   assert.strictEqual(truncationMeta.limit, 3, 'limit is 3');
-  assert.strictEqual(truncationMeta.totalGenerated, 10, 'totalGenerated is 10');
-  assert.strictEqual(truncationMeta.findingsDropped, 7, 'findingsDropped is 7');
-  console.log('  ✔ Correctly truncates findings to configured limit (3 returned, 7 dropped) and attaches TruncationMetadata.');
+  assert(truncationMeta.totalGenerated >= 3, 'totalGenerated is at least 3');
+  console.log('  ✔ Correctly truncates findings to configured limit (3 returned) and aborts line loop early with TruncationMetadata.');
 
   // Test 2: Negative Case (Below maxFindingsPerFile Limit)
   console.log('\nTest 2: Normal execution when findings are within limit');

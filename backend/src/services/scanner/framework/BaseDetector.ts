@@ -73,15 +73,15 @@ export abstract class BaseDetector implements CryptoDetector {
 
       // Enforce finding limit guard
       const maxLimit = actualContext.executionOptions?.maxFindingsPerFile ?? 50;
-      if (findings.length > maxLimit) {
+      if (findings.length >= maxLimit) {
         const totalGenerated = findings.length;
-        const findingsDropped = totalGenerated - maxLimit;
+        const findingsDropped = Math.max(0, totalGenerated - maxLimit);
         const truncatedFindings = findings.slice(0, maxLimit);
 
         const truncationMeta: TruncationMetadata = {
           truncated: true,
           limit: maxLimit,
-          totalGenerated,
+          totalGenerated: Math.max(totalGenerated, maxLimit),
           findingsDropped
         };
 

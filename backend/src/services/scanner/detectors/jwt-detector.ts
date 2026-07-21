@@ -138,10 +138,13 @@ export class JwtDetector extends BaseDetector {
         secretSource = ` (Correlated with secret defined in ${correlationSources.join(', ')})`;
       }
 
-      lines.forEach((line, index) => {
+      const maxLimit = context.executionOptions?.maxFindingsPerFile ?? 50;
+      for (let index = 0; index < lines.length; index++) {
+        if (findings.length >= maxLimit) break;
+        const line = lines[index];
         const lineNum = index + 1;
         const trimmedLine = line.trim();
-        if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) return;
+        if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) continue;
 
         // Use resolved string if template literal or string concatenation was resolved
         const resolvedItem = detectionContext?.resolvedStrings.get(lineNum);
@@ -152,7 +155,7 @@ export class JwtDetector extends BaseDetector {
 
         // 2. Performance limit: check token length budget
         if (lineToAnalyze.length > 8192) {
-          return; // skip parsing huge minified lines
+          continue; // skip parsing huge minified lines
         }
 
         // Run sub-analyzers
@@ -418,7 +421,7 @@ export class JwtDetector extends BaseDetector {
             })
           );
         }
-      });
+      }
 
       const duration = performance.now() - start;
       TelemetryService.recordHistogram('jwt.runtime.ms', duration);

@@ -145,10 +145,13 @@ export class AesDetector extends BaseDetector {
         ? ` (Correlated with symmetric key configured in ${keySources.join(', ')})` 
         : '';
 
-      lines.forEach((line, index) => {
+      const maxLimit = context.executionOptions?.maxFindingsPerFile ?? 50;
+      for (let index = 0; index < lines.length; index++) {
+        if (findings.length >= maxLimit) break;
+        const line = lines[index];
         const lineNum = index + 1;
         const trimmedLine = line.trim();
-        if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) return;
+        if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) continue;
 
         // Use resolved string if template literal or string concatenation was resolved
         const resolvedItem = detectionContext?.resolvedStrings.get(lineNum);
@@ -158,7 +161,7 @@ export class AesDetector extends BaseDetector {
         const astMock = undefined;
 
         // 2. Performance limit: check statement length
-        if (lineToAnalyze.length > 8192) return;
+        if (lineToAnalyze.length > 8192) continue;
 
         // Run sub-analyzers
         const algoIssue = this.algoAnalyzer.analyzeLine(lineToAnalyze, astMock);
@@ -464,7 +467,7 @@ export class AesDetector extends BaseDetector {
             })
           );
         }
-      });
+      }
 
       const duration = performance.now() - start;
       TelemetryService.recordHistogram('aes.runtime.ms', duration);

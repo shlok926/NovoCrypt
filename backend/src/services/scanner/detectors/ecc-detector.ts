@@ -125,10 +125,13 @@ export class EccDetector extends BaseDetector {
       const hasSig = /ECDSA|EdDSA|Ed25519|Ed448|crypto\.sign|crypto\.verify|Signature\.getInstance/i.test(targetCode);
       const hasKx = /ECDH|KeyAgreement|createECDH|X25519|X448/i.test(targetCode);
       
-      lines.forEach((line, index) => {
+      const maxLimit = context.executionOptions?.maxFindingsPerFile ?? 50;
+      for (let index = 0; index < lines.length; index++) {
+        if (findings.length >= maxLimit) break;
+        const line = lines[index];
         const lineNum = index + 1;
         const trimmedLine = line.trim();
-        if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) return; // skip comments
+        if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) continue; // skip comments
         
         // Use resolved string if template literal or string concatenation was resolved
         const resolvedItem = detectionContext?.resolvedStrings.get(lineNum);
@@ -357,7 +360,7 @@ export class EccDetector extends BaseDetector {
             }
           }
         }
-      });
+      }
       
       const duration = performance.now() - start;
       TelemetryService.recordHistogram('ecc.runtime.ms', duration);
