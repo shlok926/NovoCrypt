@@ -17,6 +17,14 @@ export interface ExecutionOptions {
   timeoutMs?: number;
   maxFileSize?: number;
   enableTelemetry?: boolean;
+  maxFindingsPerFile?: number;
+}
+
+export interface TruncationMetadata {
+  truncated: boolean;
+  limit: number;
+  totalGenerated: number;
+  findingsDropped: number;
 }
 
 export enum SupportLevel {
@@ -162,10 +170,11 @@ export class ScanContext {
     this.scanId = options.scanId || crypto.randomUUID();
     this.configuration = options.configuration || {};
     
-    this.executionOptions = options.executionOptions || {
-      timeoutMs: 250,
-      maxFileSize: 100 * 1024,
-      enableTelemetry: true
+    this.executionOptions = {
+      timeoutMs: options.executionOptions?.timeoutMs ?? 250,
+      maxFileSize: options.executionOptions?.maxFileSize ?? 100 * 1024,
+      enableTelemetry: options.executionOptions?.enableTelemetry ?? true,
+      maxFindingsPerFile: options.executionOptions?.maxFindingsPerFile ?? 50
     };
     
     this.capabilities = options.capabilities || {
@@ -239,6 +248,7 @@ export interface ScanFinding {
   references: string[];
   fingerprint: string;
   timestamp: string;
+  truncation?: TruncationMetadata;
 }
 
 export interface DetectorHealth {

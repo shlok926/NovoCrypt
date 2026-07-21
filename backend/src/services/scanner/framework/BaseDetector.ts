@@ -1,6 +1,7 @@
-import { CryptoDetector, DetectorMetadata, Rule, ScanContext, ScanSharedState, ScanFinding, TargetType, Evidence, DetectorHealth, ConfidenceExplanation, DetectionContext } from '../types';
+import { CryptoDetector, DetectorMetadata, Rule, ScanContext, ScanSharedState, ScanFinding, TargetType, Evidence, DetectorHealth, ConfidenceExplanation, DetectionContext, TruncationMetadata } from '../types';
 import { RuleEngine } from '../RuleEngine';
 import { DetectionContextBuilder } from '../utils/context/DetectionContextBuilder';
+import { TelemetryService } from '../../observability';
 import crypto from 'crypto';
 
 export abstract class BaseDetector implements CryptoDetector {
@@ -58,7 +59,7 @@ export abstract class BaseDetector implements CryptoDetector {
     }
 
     try {
-      const findings = await this.executeDetection(actualContext, detectionContext);
+      let findings = await this.executeDetection(actualContext, detectionContext);
 
       // In enterprise mode, adjust confidence for test/example files
       if (filterMode === 'enterprise' && detectionContext.pathClassification.isTestFile) {
@@ -68,6 +69,36 @@ export abstract class BaseDetector implements CryptoDetector {
             f.confidenceExplanation.reason += ' (Reduced: test/fixture path)';
           }
         });
+      }
+
+      // Enforce finding limit guard
+      const maxLimit = actualContext.executionOptions?.maxFindingsPerFile ?? 50;
+      if (findings.length > maxLimit) {
+        const totalGenerated = findings.length;
+        const findingsDropped = totalGenerated - maxLimit;
+        const truncatedFindings = findings.slice(0, maxLimit);
+
+        const truncationMeta: TruncationMetadata = {
+          truncated: true,
+          limit: maxLimit,
+          totalGenerated,
+          findingsDropped
+        };
+
+        truncatedFindings.forEach(f => {
+          f.truncation = truncationMeta;
+        });
+
+        TelemetryService.recordCounter('scanner.findings.truncated', 1);
+        actualContext.services.logger.warn(`Findings limit reached for ${this.id} on ${actualContext.fileName || 'target'}: returned ${maxLimit}/${totalGenerated} (${findingsDropped} dropped)`, {
+          detector: this.id,
+          file: actualContext.fileName || 'unknown',
+          configuredLimit: maxLimit,
+          generatedCount: totalGenerated,
+          returnedCount: maxLimit
+        });
+
+        findings = truncatedFindings;
       }
 
       this.executionCount++;
