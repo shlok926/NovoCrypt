@@ -12,3 +12,6 @@ export * from './TraversalEngine';
 export * from './Scope';
 export * from './ScopeManager';
 export * from './ScopeVisitor';
+export * from './Symbol';
+export * from './SymbolTable';
+export * from './SymbolVisitor';
