@@ -40,6 +40,31 @@ export class ScannerEngine {
     // Populate AST Context if supported and target language is TS/JS
     if (context.targetType === 'code' && context.language && ['typescript', 'javascript'].includes(context.language)) {
       context.ast = this.astProvider.getAST(context) as any;
+      const astContext = context.ast;
+      if (astContext) {
+        const { ScopeManager } = require('./ast/ScopeManager');
+        const { SymbolTable } = require('./ast/SymbolTable');
+        const { TypeResolver } = require('./ast/TypeResolver');
+        const { ScopeVisitor } = require('./ast/ScopeVisitor');
+        const { SymbolVisitor } = require('./ast/SymbolVisitor');
+        const { TraversalEngine } = require('./ast/TraversalEngine');
+
+        const scopeManager = new ScopeManager();
+        const symbolTable = new SymbolTable();
+        const typeResolver = new TypeResolver(symbolTable);
+
+        const scopeVisitor = new ScopeVisitor(scopeManager);
+        const symbolVisitor = new SymbolVisitor(scopeManager, symbolTable);
+
+        const engine = new TraversalEngine();
+        engine.registerVisitor(scopeVisitor);
+        engine.registerVisitor(symbolVisitor);
+        engine.traverse(astContext);
+
+        astContext.parserMetadata.set('scopeManager', scopeManager);
+        astContext.parserMetadata.set('symbolTable', symbolTable);
+        astContext.parserMetadata.set('typeResolver', typeResolver);
+      }
     }
 
     // Filter detectors that support the target type
@@ -165,6 +190,31 @@ export class ScannerEngine {
 
           if (context.language && ['typescript', 'javascript'].includes(context.language)) {
             context.ast = this.astProvider.getAST(context) as any;
+            const astContext = context.ast;
+            if (astContext) {
+              const { ScopeManager } = require('./ast/ScopeManager');
+              const { SymbolTable } = require('./ast/SymbolTable');
+              const { TypeResolver } = require('./ast/TypeResolver');
+              const { ScopeVisitor } = require('./ast/ScopeVisitor');
+              const { SymbolVisitor } = require('./ast/SymbolVisitor');
+              const { TraversalEngine } = require('./ast/TraversalEngine');
+
+              const scopeManager = new ScopeManager();
+              const symbolTable = new SymbolTable();
+              const typeResolver = new TypeResolver(symbolTable);
+
+              const scopeVisitor = new ScopeVisitor(scopeManager);
+              const symbolVisitor = new SymbolVisitor(scopeManager, symbolTable);
+
+              const engine = new TraversalEngine();
+              engine.registerVisitor(scopeVisitor);
+              engine.registerVisitor(symbolVisitor);
+              engine.traverse(astContext);
+
+              astContext.parserMetadata.set('scopeManager', scopeManager);
+              astContext.parserMetadata.set('symbolTable', symbolTable);
+              astContext.parserMetadata.set('typeResolver', typeResolver);
+            }
           }
 
           for (const detector of activeDetectors) {

@@ -17,3 +17,4 @@ export * from './SymbolTable';
 export * from './SymbolVisitor';
 export * from './Type';
 export * from './TypeResolver';
+export * from './SemanticVerifier';

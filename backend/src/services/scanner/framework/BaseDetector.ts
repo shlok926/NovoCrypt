@@ -61,6 +61,12 @@ export abstract class BaseDetector implements CryptoDetector {
     try {
       let findings = await this.executeDetection(actualContext, detectionContext);
 
+      // Run hybrid semantic verification if AST is present
+      if (actualContext.ast) {
+        const { SemanticVerifier } = await import('../ast/SemanticVerifier');
+        findings = SemanticVerifier.verifyAll(findings, actualContext.ast);
+      }
+
       // In enterprise mode, adjust confidence for test/example files
       if (filterMode === 'enterprise' && detectionContext.pathClassification.isTestFile) {
         findings.forEach(f => {

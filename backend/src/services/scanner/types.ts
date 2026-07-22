@@ -250,6 +250,7 @@ export interface ScanFinding {
   fingerprint: string;
   timestamp: string;
   truncation?: TruncationMetadata;
+  metadata?: any;
 }
 
 export interface DetectorHealth {
