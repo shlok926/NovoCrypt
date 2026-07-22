@@ -66,7 +66,10 @@ async function runParserTests() {
 
   assert(varDeclNode !== null, 'Should locate normalized VariableDeclaration node');
   assert.strictEqual(varDeclNode.location.startLine, 2, 'Variable declaration should start on line 2');
-  console.log('  ✔ Node location (startLine/startColumn) and kinds normalized successfully.');
+  assert(varDeclNode.rawReference !== null, 'rawReference should exist');
+  assert.strictEqual(typeof varDeclNode.rawReference.ref, 'object', 'Native node reference should be wrapped as object');
+  assert.strictEqual(typeof varDeclNode.rawReference.kind, 'string', 'Native kind should be string');
+  console.log('  ✔ Node location (startLine/startColumn), rawReference wrapping, and kinds normalized successfully.');
 
   // Test 4: Diagnostics on syntax errors (Invalid code)
   console.log('\nTest 4: Syntactic diagnostics on invalid TypeScript');

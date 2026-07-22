@@ -3,6 +3,8 @@ import { ParserManager } from './ParserManager';
 import { ASTCache } from './ASTCache';
 import { ScanContext } from '../types';
 
+import crypto from 'crypto';
+
 export class ASTProvider {
   private parserManager: ParserManager;
   private requestCache: ASTCache;
@@ -17,7 +19,7 @@ export class ASTProvider {
       return undefined;
     }
 
-    const sourceHash = context.target.length;
+    const sourceHash = crypto.createHash('md5').update(context.target).digest('hex');
     const cacheKey = `${context.fileName}-${sourceHash}`;
 
     let ast = this.requestCache.get(cacheKey);

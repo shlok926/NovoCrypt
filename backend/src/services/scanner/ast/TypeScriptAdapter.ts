@@ -135,7 +135,10 @@ export class TypeScriptAdapter implements LanguageAdapter {
       parent,
       metadata: new Map<string, any>(),
       language,
-      rawReference: nativeNode
+      rawReference: {
+        ref: nativeNode,
+        kind: ts.SyntaxKind[nativeNode.kind]
+      }
     };
 
     // Populate metadata

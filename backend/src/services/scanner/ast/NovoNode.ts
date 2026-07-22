@@ -7,6 +7,11 @@ export interface NodeLocation {
   end: number;
 }
 
+export interface NativeNodeHandle {
+  readonly ref: unknown;
+  readonly kind: string;
+}
+
 export interface NovoNode {
   type: string;        // Normalized type: e.g., 'Identifier', 'CallExpression', 'VariableDeclarator', 'SourceFile'
   kind: string;        // Language-specific node kind/name: e.g. ts.SyntaxKind name
@@ -15,5 +20,5 @@ export interface NovoNode {
   parent?: NovoNode;
   metadata: Map<string, any>;
   language: string;
-  rawReference: any;   // Reference to the original native compiler node
+  rawReference: NativeNodeHandle; // Safe wrapped handle to the original native compiler node
 }
