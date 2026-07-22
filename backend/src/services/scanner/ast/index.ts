@@ -15,3 +15,5 @@ export * from './ScopeVisitor';
 export * from './Symbol';
 export * from './SymbolTable';
 export * from './SymbolVisitor';
+export * from './Type';
+export * from './TypeResolver';
