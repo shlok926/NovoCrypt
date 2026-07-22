@@ -51,3 +51,6 @@ jobs:
 
     - name: TypeScript Type Check
       run: npm run build
+
+    - name: Run Regression Tests
+      run: npm test
