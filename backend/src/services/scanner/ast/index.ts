@@ -5,3 +5,7 @@ export * from './TypeScriptAdapter';
 export * from './ParserManager';
 export * from './ASTCache';
 export * from './ASTProvider';
+export * from './IASTVisitor';
+export * from './TraversalContext';
+export * from './TraversalMetrics';
+export * from './TraversalEngine';
