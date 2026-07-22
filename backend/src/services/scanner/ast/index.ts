@@ -19,3 +19,5 @@ export * from './Type';
 export * from './TypeResolver';
 export * from './SemanticVerifier';
 export * from './dataflow';
+export * from './taint';
+export * from './callgraph';

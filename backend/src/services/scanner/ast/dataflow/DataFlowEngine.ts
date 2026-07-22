@@ -25,24 +25,69 @@ export class DataFlowEngine {
 
     const allSymbols = symbolTable.getAllSymbols();
 
-    // 1. Create nodes for all declarations & initializers
-    for (const symbol of allSymbols) {
-      const declNode = symbol.declaration;
-      const declKind: FlowNodeKind = symbol.kind === 'Parameter' ? 'Parameter' : 'VariableDeclaration';
-      
-      const declFlow = this.createNode(declKind, declNode, symbol.name, graph);
-
-      // Initializer connection
-      const nativeDecl = declNode.rawReference?.ref as any;
-      if (nativeDecl && nativeDecl.initializer) {
-        const initNovo = this.findNovoNode(nativeDecl.initializer, declNode);
-        if (initNovo) {
-          const initFlow = this.createNodeForExpression(initNovo, graph);
-          this.createEdge(initFlow, declFlow, 'Initializer', graph);
+    // 1. Create nodes for all declarations, parameters, literals, and property accesses recursively
+    const visitNode = (node: NovoNode) => {
+      if (node.type === 'VariableDeclaration') {
+        const name = node.metadata.get('name') || 'var';
+        this.createNode('VariableDeclaration', node, name, graph);
+      } 
+      else if (node.type === 'Parameter') {
+        const name = node.metadata.get('name') || 'param';
+        this.createNode('Parameter', node, name, graph);
+      }
+      else if (node.type === 'CallExpression') {
+        const native = node.rawReference?.ref as any;
+        const label = native ? native.getText() : 'call';
+        this.createNode('FunctionCall', node, label, graph);
+      }
+      else if (node.type === 'PropertyAccessExpression') {
+        const native = node.rawReference?.ref as any;
+        const label = native ? native.getText() : 'property';
+        this.createNode('VariableDeclaration', node, label, graph);
+      }
+      else if (node.type === 'StringLiteral' || node.type === 'NumericLiteral' || node.type === 'TrueKeyword' || node.type === 'FalseKeyword') {
+        const native = node.rawReference?.ref as any;
+        const label = native ? native.getText() : 'literal';
+        this.createNode('Literal', node, label, graph);
+      }
+      else if (node.type === 'BinaryExpression') {
+        const native = node.rawReference?.ref as any;
+        if (native && (native.operatorToken.kind === ts.SyntaxKind.EqualsToken)) {
+          this.createNode('Assignment', node, native.getText(), graph);
         }
       }
 
-      // 2. Track references
+      node.children.forEach(visitNode);
+    };
+    visitNode(astContext.root);
+
+    // 2. Connect variable initializers
+    const declarations: NovoNode[] = [];
+    const collectDecls = (n: NovoNode) => {
+      if (n.type === 'VariableDeclaration' || n.type === 'Parameter') declarations.push(n);
+      n.children.forEach(collectDecls);
+    };
+    collectDecls(astContext.root);
+
+    for (const decl of declarations) {
+      const nativeDecl = decl.rawReference?.ref as any;
+      if (nativeDecl && nativeDecl.initializer) {
+        const initNovo = this.findNovoNode(nativeDecl.initializer, decl);
+        if (initNovo) {
+          const initFlow = graph.findNodesByAstNode(initNovo)[0] || this.createNodeForExpression(initNovo, graph);
+          const declFlow = graph.findNodesByAstNode(decl)[0];
+          if (declFlow && initFlow) {
+            this.createEdge(initFlow, declFlow, 'Initializer', graph);
+          }
+        }
+      }
+    }
+
+    // 3. Track references
+    for (const symbol of allSymbols) {
+      const declFlow = graph.findNodesByAstNode(symbol.declaration)[0];
+      if (!declFlow) continue;
+
       for (const ref of symbol.references) {
         if (ref.usage === 'write') {
           const assignNode = ref.node.parent;
@@ -54,7 +99,7 @@ export class DataFlowEngine {
             if (nativeAssign && nativeAssign.right) {
               const rightNovo = this.findNovoNode(nativeAssign.right, assignNode);
               if (rightNovo) {
-                const rightFlow = this.createNodeForExpression(rightNovo, graph);
+                const rightFlow = graph.findNodesByAstNode(rightNovo)[0] || this.createNodeForExpression(rightNovo, graph);
                 this.createEdge(rightFlow, assignFlow, 'Assignment', graph);
               }
             }
@@ -66,7 +111,7 @@ export class DataFlowEngine {
       }
     }
 
-    // 3. Track parameter passing and returns across calls
+    // 4. Track parameter passing and returns across calls
     const callNodes: NovoNode[] = [];
     const collectCalls = (n: NovoNode) => {
       if (n.type === 'CallExpression') callNodes.push(n);
@@ -78,12 +123,23 @@ export class DataFlowEngine {
       const nativeCall = call.rawReference?.ref as any;
       if (!nativeCall) continue;
 
+      const callFlow = graph.findNodesByAstNode(call)[0] || this.createNode('FunctionCall', call, nativeCall.getText(), graph);
+
+      // Connect each argument to the FunctionCall node
+      if (nativeCall.arguments) {
+        for (const arg of nativeCall.arguments) {
+          const argNovo = this.findNovoNode(arg, call);
+          if (argNovo) {
+            const argFlow = graph.findNodesByAstNode(argNovo)[0] || this.createNodeForExpression(argNovo, graph);
+            this.createEdge(argFlow, callFlow, 'FunctionArgument', graph);
+          }
+        }
+      }
+
       const expr = nativeCall.expression;
       if (ts.isIdentifier(expr)) {
         const targetSymbol = allSymbols.find(s => s.name === expr.text && (s.kind === 'Function' || s.kind === 'Method'));
         if (targetSymbol) {
-          const callFlow = this.createNode('FunctionCall', call, `${targetSymbol.name}()`, graph);
-
           // Parameter passing
           const paramSymbols = allSymbols.filter(s => s.scope.creationNode === targetSymbol.declaration && s.kind === 'Parameter');
           const nativeParams = (targetSymbol.declaration.rawReference?.ref as any)?.parameters || [];
@@ -95,7 +151,7 @@ export class DataFlowEngine {
               if (paramSymbol) {
                 const argNovo = this.findNovoNode(arg, call);
                 if (argNovo) {
-                  const argFlow = this.createNodeForExpression(argNovo, graph);
+                  const argFlow = graph.findNodesByAstNode(argNovo)[0] || this.createNodeForExpression(argNovo, graph);
                   const paramFlow = graph.findNodesByAstNode(paramSymbol.declaration)[0];
                   if (paramFlow) {
                     this.createEdge(argFlow, paramFlow, 'ParameterPassing', graph);
@@ -118,7 +174,7 @@ export class DataFlowEngine {
             if (nativeRet && nativeRet.expression) {
               const retValNovo = this.findNovoNode(nativeRet.expression, retNode);
               if (retValNovo) {
-                const retValFlow = this.createNodeForExpression(retValNovo, graph);
+                const retValFlow = graph.findNodesByAstNode(retValNovo)[0] || this.createNodeForExpression(retValNovo, graph);
                 const retFlow = this.createNode('Return', retNode, 'return ...', graph);
                 
                 this.createEdge(retValFlow, retFlow, 'Return', graph);
@@ -160,9 +216,13 @@ export class DataFlowEngine {
       kind = 'FunctionCall';
     } else if (node.type === 'Identifier') {
       kind = 'VariableDeclaration';
+    } else if (node.type === 'PropertyAccessExpression') {
+      kind = 'VariableDeclaration';
     }
 
-    return this.createNode(kind, node, node.metadata.get('name') || node.metadata.get('value') || 'expr', graph);
+    const native = node.rawReference?.ref as ts.Node;
+    const label = native ? native.getText() : (node.metadata.get('name') || node.metadata.get('value') || 'expr');
+    return this.createNode(kind, node, label, graph);
   }
 
   private createEdge(source: FlowNode, target: FlowNode, kind: FlowEdgeKind, graph: FlowGraph): void {

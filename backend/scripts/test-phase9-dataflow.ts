@@ -82,7 +82,7 @@ async function runDataFlowTests() {
   assert(activeKeyNode !== undefined, 'Should find activeKey node');
   
   const origins = dfEngine.findOrigins(activeKeyNode!, graph);
-  assert(origins.some(o => o.kind === 'Literal' && o.label === 'secret_key'), 'Origin of activeKey should trace back to "secret_key" Literal');
+  assert(origins.some(o => o.kind === 'Literal' && o.label.includes('secret_key')), 'Origin of activeKey should trace back to "secret_key" Literal');
   console.log('  ✔ Origin trace successfully resolved "activeKey" ➔ "secret_key".');
 
   // Test 6: Alias tracking
