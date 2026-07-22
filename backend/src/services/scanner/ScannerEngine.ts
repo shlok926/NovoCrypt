@@ -2,9 +2,13 @@ import { CryptoDetector, ScanContext, ScanResultData, ScanFinding, TargetType, S
 import { RiskEngine } from './RiskEngine';
 import { detectorRegistry } from './framework/DetectorRegistry';
 import { Logger, TelemetryService } from '../observability';
+import { ParserManager } from './ast/ParserManager';
+import { ASTProvider } from './ast/ASTProvider';
 
 export class ScannerEngine {
   private riskEngine: RiskEngine = new RiskEngine();
+  private parserManager = new ParserManager();
+  private astProvider = new ASTProvider(this.parserManager);
 
   // Keep for backwards compatibility if needed, but proxy to registry
   public registerDetector(detector: CryptoDetector) {
@@ -32,6 +36,11 @@ export class ScannerEngine {
           configuration: (rawContext as any).configuration,
           services
         });
+
+    // Populate AST Context if supported and target language is TS/JS
+    if (context.targetType === 'code' && context.language && ['typescript', 'javascript'].includes(context.language)) {
+      context.ast = this.astProvider.getAST(context) as any;
+    }
 
     // Filter detectors that support the target type
     const activeDetectors = detectorRegistry.getActiveDetectors(context.targetType);
@@ -69,6 +78,7 @@ export class ScannerEngine {
       const results = await Promise.all(scanPromises);
       results.forEach(findings => allFindings.push(...findings));
     } finally {
+      this.astProvider.clearCache();
       // Dispose detectors
       for (const detector of activeDetectors) {
         try {
@@ -153,6 +163,10 @@ export class ScannerEngine {
             services
           });
 
+          if (context.language && ['typescript', 'javascript'].includes(context.language)) {
+            context.ast = this.astProvider.getAST(context) as any;
+          }
+
           for (const detector of activeDetectors) {
              const start = performance.now();
              const findings = await detector.detect(context);
@@ -169,6 +183,7 @@ export class ScannerEngine {
         }
       }
     } finally {
+      this.astProvider.clearCache();
       // Dispose detectors
       for (const detector of activeDetectors) {
         try {

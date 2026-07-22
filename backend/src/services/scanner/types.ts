@@ -104,7 +104,8 @@ export interface DetectionContext {
   languageSupport?: LanguageSupport;
 }
 
-export interface AstContext {}
+import { ASTContext } from './ast/ASTContext';
+export interface AstContext extends ASTContext {}
 
 export class ScanSharedState {
   public readonly jwtSecrets = new Map<string, { file: string; line: number; secretType: string }>();
@@ -194,7 +195,7 @@ export class ScanContext {
   }
 
   public getAst(file: string): AstContext | undefined { 
-    return undefined; 
+    return this.ast; 
   }
 }
 
