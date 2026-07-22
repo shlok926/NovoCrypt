@@ -9,3 +9,6 @@ export * from './IASTVisitor';
 export * from './TraversalContext';
 export * from './TraversalMetrics';
 export * from './TraversalEngine';
+export * from './Scope';
+export * from './ScopeManager';
+export * from './ScopeVisitor';

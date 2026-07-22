@@ -150,6 +150,10 @@ export class TypeScriptAdapter implements LanguageAdapter {
       novoNode.metadata.set('value', Number(nativeNode.text));
     }
 
+    if ((nativeNode as any).name && ts.isIdentifier((nativeNode as any).name)) {
+      novoNode.metadata.set('name', (nativeNode as any).name.text);
+    }
+
     // Normalize children recursively
     const children: NovoNode[] = [];
     nativeNode.forEachChild(child => {
