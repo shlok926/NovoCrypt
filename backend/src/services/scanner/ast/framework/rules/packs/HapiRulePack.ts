@@ -12,6 +12,7 @@ export class HapiRulePack implements RulePack {
       metadata: {
         id: 'hapi-missing-validation',
         name: 'Hapi Route Missing Parameters Validation',
+        description: 'Verify if Hapi route options configure request parameter validations.',
         version: '1.0.0',
         category: 'Validation',
         severity: 'medium',

@@ -12,6 +12,7 @@ export class KoaRulePack implements RulePack {
       metadata: {
         id: 'koa-middleware-ordering',
         name: 'Koa Sensitive Middleware Ordering Issues',
+        description: 'Verify ordering constraints of critical middlewares (e.g. bodyParser, session must run before router).',
         version: '1.0.0',
         category: 'Configuration',
         severity: 'high',

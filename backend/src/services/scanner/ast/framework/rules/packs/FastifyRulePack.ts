@@ -12,6 +12,7 @@ export class FastifyRulePack implements RulePack {
       metadata: {
         id: 'fastify-missing-validation',
         name: 'Fastify Route Missing Schema Validation',
+        description: 'The Fastify route registration does not configure JSON schema validations.',
         version: '1.0.0',
         category: 'Validation',
         severity: 'medium',

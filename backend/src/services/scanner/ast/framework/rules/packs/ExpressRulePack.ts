@@ -12,6 +12,7 @@ export class ExpressRulePack implements RulePack {
       metadata: {
         id: 'express-missing-auth',
         name: 'Express Route Missing Authentication',
+        description: 'The sensitive route does not configure any authentication middleware.',
         version: '1.0.0',
         category: 'Authentication',
         severity: 'high',
@@ -50,6 +51,7 @@ export class ExpressRulePack implements RulePack {
       metadata: {
         id: 'express-missing-helmet',
         name: 'Express Missing Helmet Protection Headers',
+        description: 'Helmet security headers middleware is not detected in the Express application execution pipeline.',
         version: '1.0.0',
         category: 'Headers',
         severity: 'medium',
@@ -86,6 +88,7 @@ export class ExpressRulePack implements RulePack {
       metadata: {
         id: 'express-missing-validation',
         name: 'Express Route Missing Validation Middleware',
+        description: 'The route does not configure input validation middleware.',
         version: '1.0.0',
         category: 'Validation',
         severity: 'medium',

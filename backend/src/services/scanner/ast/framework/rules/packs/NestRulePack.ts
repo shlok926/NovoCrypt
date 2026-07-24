@@ -10,6 +10,7 @@ export class NestRulePack implements RulePack {
       metadata: {
         id: 'nest-missing-guard',
         name: 'NestJS Endpoint Missing Guards Protection',
+        description: 'The sensitive NestJS route does not configure any authorization guards.',
         version: '1.0.0',
         category: 'Authentication',
         severity: 'high',
@@ -55,6 +56,7 @@ export class NestRulePack implements RulePack {
       metadata: {
         id: 'nest-missing-validation-pipe',
         name: 'NestJS Endpoint Missing Validation Pipes',
+        description: 'The NestJS route does not configure request validation pipes.',
         version: '1.0.0',
         category: 'Validation',
         severity: 'medium',
@@ -97,6 +99,7 @@ export class NestRulePack implements RulePack {
       metadata: {
         id: 'nest-missing-exception-filter',
         name: 'NestJS Endpoint Missing Exception Filters',
+        description: 'The NestJS route does not register custom exception filters.',
         version: '1.0.0',
         category: 'Configuration',
         severity: 'low',

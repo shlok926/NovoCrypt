@@ -19,6 +19,7 @@ scannerEngine.registerDetector(new PqcDetector());
 export { scannerEngine };
 export * from './types';
 export * from './RiskEngine';
+export * from './sarif';
 
 
 
