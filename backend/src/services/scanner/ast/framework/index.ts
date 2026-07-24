@@ -13,3 +13,6 @@ export * from './registry/plugins/HapiPlugin';
 
 export * from './discovery/FrameworkDiscoveryEngine';
 export * from './discovery/DiscoveryResult';
+
+export * from './semantic';
+export * from './rules';
