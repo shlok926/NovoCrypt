@@ -20,6 +20,7 @@ export { scannerEngine };
 export * from './types';
 export * from './RiskEngine';
 export * from './sarif';
+export * from './ide';
 
 
 
