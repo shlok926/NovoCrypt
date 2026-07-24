@@ -21,3 +21,4 @@ export * from './SemanticVerifier';
 export * from './dataflow';
 export * from './taint';
 export * from './callgraph';
+export * from './framework';
