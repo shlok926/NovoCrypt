@@ -23,6 +23,8 @@ export * from './sarif';
 export * from './ide';
 export * from './policy';
 export { RepositoryEngine, RepositoryConfiguration } from './repository';
+export * from './analysis/interprocedural';
+
 
 
 
