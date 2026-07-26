@@ -26,6 +26,8 @@ export { RepositoryEngine, RepositoryConfiguration } from './repository';
 export * from './analysis/interprocedural';
 export * from './analysis/symbolic';
 export * from './framework';
+export * from './analysis/exploitability';
+
 
 
 
