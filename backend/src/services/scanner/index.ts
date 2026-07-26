@@ -25,6 +25,8 @@ export * from './policy';
 export { RepositoryEngine, RepositoryConfiguration } from './repository';
 export * from './analysis/interprocedural';
 export * from './analysis/symbolic';
+export * from './framework';
+
 
 
 
