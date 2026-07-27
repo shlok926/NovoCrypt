@@ -11,5 +11,6 @@ export interface AdvisorMetrics {
   readonly recommendationCacheHits: number;
   readonly recommendationCacheMisses: number;
   readonly averageExplanationGenerationTimeMs: number;
+  readonly averageExplanationSize: number;
   readonly executionTimeMs: number;
 }

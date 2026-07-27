@@ -17,6 +17,7 @@ import { FixComparator } from './engine/FixComparator';
 import { KnowledgeResolver } from './engine/KnowledgeResolver';
 import { DeveloperGuidanceGenerator } from './engine/DeveloperGuidanceGenerator';
 import { AdvisorEngine } from './engine/AdvisorEngine';
+import { Workspace } from '../../repository/workspace/Workspace';
 
 export class AdvisorOrchestrator {
   private explanationCache = new ExplanationCache();
@@ -36,7 +37,8 @@ export class AdvisorOrchestrator {
     return this.recommendationCache;
   }
 
-  public generateRecommendations(vulnerabilityId: string): Recommendation[] {
+  public generateRecommendations(workspace: Workspace | string): Recommendation[] {
+    const vulnerabilityId = typeof workspace === 'string' ? workspace : (workspace.metadata.get('vulnerabilityId') || 'sql_injection');
     const key = `rec-${vulnerabilityId}`;
     const cached = this.recommendationCache.get(key);
     if (cached) return [cached];
@@ -46,23 +48,45 @@ export class AdvisorOrchestrator {
     return [rec];
   }
 
-  public analyseRootCauses(vulnerabilityId: string, filePath: string): RootCause[] {
-    return [RootCauseAnalyzer.analyze(vulnerabilityId, filePath)];
+  public analyseRootCauses(workspace: Workspace | string, filePath?: string): RootCause[] {
+    let vulnerabilityId = 'sql_injection';
+    let file = filePath || 'src/db.ts';
+    if (typeof workspace !== 'string') {
+      vulnerabilityId = workspace.metadata.get('vulnerabilityId') || 'sql_injection';
+      file = workspace.metadata.get('filePath') || file;
+    } else {
+      vulnerabilityId = workspace;
+    }
+    return [RootCauseAnalyzer.analyze(vulnerabilityId, file)];
   }
 
-  public compareRemediationStrategies(strategies: string[]): FixComparison[] {
+  public compareRemediationStrategies(workspace: Workspace | string[]): FixComparison[] {
+    const strategies = Array.isArray(workspace) ? workspace : (workspace.metadata.get('strategies') || ['parameterize']);
     return FixComparator.compare(strategies);
   }
 
-  public generateDeveloperGuidance(vulnerabilityId: string): SecurityInsight[] {
+  public generateDeveloperGuidance(workspace: Workspace | string): SecurityInsight[] {
+    const vulnerabilityId = typeof workspace === 'string' ? workspace : (workspace.metadata.get('vulnerabilityId') || 'sql_injection');
     return DeveloperGuidanceGenerator.generate(vulnerabilityId);
   }
 
   public async generateSecurityExplanations(
-    vulnerabilityId: string,
-    filePath: string,
+    workspace: Workspace | string,
+    filePath?: string,
     steps: string[] = []
   ): Promise<{ summary: AdvisorSummary; metrics: AdvisorMetrics }> {
+    let vulnerabilityId = 'sql_injection';
+    let file = filePath || 'src/db.ts';
+    let stepsList = steps;
+
+    if (typeof workspace !== 'string') {
+      vulnerabilityId = workspace.metadata.get('vulnerabilityId') || 'sql_injection';
+      file = workspace.metadata.get('filePath') || file;
+      stepsList = workspace.metadata.get('steps') || stepsList;
+    } else {
+      vulnerabilityId = workspace;
+    }
+
     const start = performance.now();
 
     const cachedExp = this.explanationCache.get(vulnerabilityId);
@@ -75,7 +99,7 @@ export class AdvisorOrchestrator {
       this.explanationCache.set(vulnerabilityId, explanation);
     }
 
-    const { insights, trace } = this.engine.compileAdvisorSummary(vulnerabilityId, filePath, steps);
+    const { insights, trace } = this.engine.compileAdvisorSummary(vulnerabilityId, file, stepsList);
     const recs = this.generateRecommendations(vulnerabilityId);
     const conflicts = RecommendationConflictAnalyzer.analyzeConflicts(recs);
 
@@ -92,7 +116,7 @@ export class AdvisorOrchestrator {
     const metrics: AdvisorMetrics = {
       explanationsGenerated: 1,
       reasoningTracesGenerated: 1,
-      evidenceLinksCreated: steps.length,
+      evidenceLinksCreated: stepsList.length,
       recommendationsGenerated: recs.length,
       recommendationConflictsDetected: conflicts.length,
       knowledgeReferencesResolved: ref ? 1 : 0,
@@ -101,6 +125,7 @@ export class AdvisorOrchestrator {
       explanationCacheMisses: cachedExp ? 0 : 1,
       recommendationCacheHits: 0,
       recommendationCacheMisses: 1,
+      averageExplanationSize: JSON.stringify(explanation).length,
       averageExplanationGenerationTimeMs: elapsed,
       executionTimeMs: elapsed
     };
