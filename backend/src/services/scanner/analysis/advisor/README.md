@@ -97,22 +97,31 @@ The registry maps vulnerability IDs to standard identifiers and advisory guidanc
 - **CERT Secure Coding:** Coding guidelines.
 - **CAPEC:** Attack patterns.
 - **Framework Hardening:** Helmet configuration for Express, Guards/Pipes rules for NestJS, DOMPurify configuration for React.
-- **MITRE ATT&CK:** Post-exploitation context defensive mappings.
+- **MITRE ATT&CK:** Post-exploitation context defensive mappings (advisory only).
 
 ---
 
-## 4. Memory Scaling & Caching
+## 4. Cache Invalidation Strategy
 
-Memory consumption scales predictably according to the workspace size:
-- **Cache Reuse:** Incremental rescans reuse cached explanations and recommendations.
-- **Cache Invalidation:** Only modified or affected files invalidate cache entries.
-- **Cache Targets:** Cache stores compiled `SecurityExplanation` and `Recommendation` objects to prevent redundant reasoning.
+Cached advisor artifacts are invalidated under the following events to maintain repository consistency:
+- **Repository changes:** Any file content additions or deletions.
+- **AST changes:** Changes in parsed structures.
+- **Exploitability changes:** Security reachability shifts.
+- **Remediation updates:** Modifications to fix strategies templates.
+- **Framework detection changes:** Package dependencies modifications.
 
 ---
 
-## 5. Enterprise Benchmarks
+## 5. Memory Scaling
+
+Memory usage grows primarily with reasoning traces, explanation caches, recommendation caches, knowledge references, remediation summaries, and generated guidance. Incremental rescans reuse cached artifacts wherever deterministic findings remain unchanged.
+
+---
+
+## 6. Enterprise Benchmarks
 
 The Advisor engine is optimized to satisfy the following target metrics:
 - **Scale:** Explaining **100,000 findings** and **50,000 attack scenarios**.
 - **Monorepos:** Support parallel explanation generation across multi-framework monorepos.
-- **Conflict Resolution:** Fast repository-wide recommendation conflict resolution.
+- **Conflict Resolution:** Fast repository-wide recommendation conflict resolution at scale.
+- **Incremental Rescans:** Rapid incremental regeneration with cache reuse.

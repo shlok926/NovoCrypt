@@ -37,6 +37,9 @@ export class AdvisorOrchestrator {
     return this.recommendationCache;
   }
 
+  /**
+   * @deprecated Passing string instead of Workspace will be removed in a future major version. Use Workspace snapshots.
+   */
   public generateRecommendations(workspace: Workspace | string): Recommendation[] {
     const vulnerabilityId = typeof workspace === 'string' ? workspace : (workspace.metadata.get('vulnerabilityId') || 'sql_injection');
     const key = `rec-${vulnerabilityId}`;
@@ -48,6 +51,9 @@ export class AdvisorOrchestrator {
     return [rec];
   }
 
+  /**
+   * @deprecated Passing string instead of Workspace will be removed in a future major version. Use Workspace snapshots.
+   */
   public analyseRootCauses(workspace: Workspace | string, filePath?: string): RootCause[] {
     let vulnerabilityId = 'sql_injection';
     let file = filePath || 'src/db.ts';
@@ -60,16 +66,25 @@ export class AdvisorOrchestrator {
     return [RootCauseAnalyzer.analyze(vulnerabilityId, file)];
   }
 
+  /**
+   * @deprecated Passing string[] instead of Workspace will be removed in a future major version. Use Workspace snapshots.
+   */
   public compareRemediationStrategies(workspace: Workspace | string[]): FixComparison[] {
     const strategies = Array.isArray(workspace) ? workspace : (workspace.metadata.get('strategies') || ['parameterize']);
     return FixComparator.compare(strategies);
   }
 
+  /**
+   * @deprecated Passing string instead of Workspace will be removed in a future major version. Use Workspace snapshots.
+   */
   public generateDeveloperGuidance(workspace: Workspace | string): SecurityInsight[] {
     const vulnerabilityId = typeof workspace === 'string' ? workspace : (workspace.metadata.get('vulnerabilityId') || 'sql_injection');
     return DeveloperGuidanceGenerator.generate(vulnerabilityId);
   }
 
+  /**
+   * @deprecated Passing string parameters instead of Workspace will be removed in a future major version. Use Workspace snapshots.
+   */
   public async generateSecurityExplanations(
     workspace: Workspace | string,
     filePath?: string,
