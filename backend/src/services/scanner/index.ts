@@ -28,6 +28,8 @@ export * from './analysis/symbolic';
 export * from './framework';
 export * from './analysis/exploitability';
 export * from './analysis/remediation';
+export * from './analysis/advisor';
+
 
 
 
