@@ -3,18 +3,6 @@ import { prisma } from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { hashPassword, verifyPassword } from '../utils/hash.util';
 
-// Mock user for fallback mode
-const MOCK_USER = {
-  id: 'mock-user-id-1234',
-  email: 'test@example.com',
-  name: 'Test User',
-  passwordHash: '$2b$10$EP0P9P/f3V/Z.H1V/7qDk.o2/l92vX2uL4x5V7c4v7Y7Z2l7Y8V5a', // password123
-  role: 'USER',
-  organizationId: null,
-  isEmailVerified: true,
-  createdAt: new Date(),
-  updatedAt: new Date()
-} as any;
 
 type RegisterInput = {
   email: string;
@@ -45,8 +33,8 @@ export const authService = {
       });
     } catch (error: any) {
       if (error instanceof AppError) throw error;
-      console.warn('Database error in register, returning mock success:', error.message);
-      return { ...MOCK_USER, email: input.email, name: input.name };
+      console.error('Authentication infrastructure error during registration:', error);
+      throw new AppError('Authentication service temporarily unavailable.', 503);
     }
   },
 
@@ -65,12 +53,8 @@ export const authService = {
       return user;
     } catch (error: any) {
       if (error instanceof AppError) throw error;
-      console.warn('Database error in login, checking against mock user:', error.message);
-      if (input.email === MOCK_USER.email && input.password === 'password123') {
-        return MOCK_USER;
-      }
-      // If it's another email, let's just mock accept for demo purposes
-      return { ...MOCK_USER, email: input.email };
+      console.error('Authentication infrastructure error during login:', error);
+      throw new AppError('Authentication service temporarily unavailable.', 503);
     }
   },
 };
