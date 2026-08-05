@@ -10,6 +10,15 @@ export const requireAuth = (req: Request, _res: Response, next: NextFunction): v
     throw new AppError('Authentication required', 401);
   }
 
-  req.user = verifyAccessToken(token);
-  next();
+  try {
+    const payload = verifyAccessToken(token);
+    if (!payload || !payload.userId) {
+      throw new AppError('Invalid token payload: missing userId', 401);
+    }
+    req.user = payload;
+    next();
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError('Invalid or expired token', 401);
+  }
 };

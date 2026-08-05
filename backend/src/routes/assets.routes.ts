@@ -9,7 +9,7 @@ router.use(requireAuth);
 // GET /api/assets - List all assets for the user
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const assets = await prisma.asset.findMany({
       where: { userId, status: 'active' },
       orderBy: { updatedAt: 'desc' },
@@ -31,7 +31,7 @@ router.get('/', async (req: Request, res: Response) => {
 // POST /api/assets - Create a new asset
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const { name, assetType, repositoryUrl, domain, description, tags } = req.body;
 
     if (!name || !assetType) {
@@ -60,7 +60,7 @@ router.post('/', async (req: Request, res: Response) => {
 // GET /api/assets/:id - Get a single asset by ID
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const { id } = req.params;
 
     const asset = await prisma.asset.findFirst({
@@ -87,7 +87,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // DELETE /api/assets/:id - Archive/Delete an asset
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const { id } = req.params;
 
     const asset = await prisma.asset.updateMany({
@@ -109,7 +109,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 // GET /api/assets/:id/timeline - Get asset event timeline
 router.get('/:id/timeline', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const { id } = req.params;
 
     const asset = await prisma.asset.findFirst({ where: { id, userId } });
@@ -126,7 +126,7 @@ router.get('/:id/timeline', async (req: Request, res: Response) => {
 // GET /api/assets/:id/snapshots - Get historical snapshots
 router.get('/:id/snapshots', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const { id } = req.params;
 
     const asset = await prisma.asset.findFirst({ where: { id, userId } });

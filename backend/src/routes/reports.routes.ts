@@ -17,7 +17,7 @@ const PreferencesSchema = z.object({
 // Get User Report Preferences
 reportsRouter.get('/preferences', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     let pref = await prisma.userPreference.findUnique({
@@ -39,7 +39,7 @@ reportsRouter.get('/preferences', requireAuth, async (req: Request, res: Respons
 // Update User Report Preferences
 reportsRouter.put('/preferences', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     const parseResult = PreferencesSchema.safeParse(req.body);
@@ -72,7 +72,7 @@ reportsRouter.put('/preferences', requireAuth, async (req: Request, res: Respons
 reportsRouter.post('/generate', requireAuth, async (req: Request, res: Response) => {
   try {
     const { assessmentId } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId || !assessmentId) {
       res.status(400).json({ message: 'Missing required fields' });
@@ -149,7 +149,7 @@ const ExecutiveReportSchema = z.object({
 // Generate Executive Report
 reportsRouter.post('/export-executive', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
     const parseResult = ExecutiveReportSchema.safeParse(req.body);
@@ -192,7 +192,7 @@ reportsRouter.post('/export-executive', requireAuth, async (req: Request, res: R
 reportsRouter.get('/download/:jobId', requireAuth, async (req: Request, res: Response) => {
   try {
     const { jobId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
@@ -335,7 +335,7 @@ reportsRouter.get('/export-pdf', requireAuth, async (req: Request, res: Response
 // List reports
 reportsRouter.get('/list', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({ message: 'Unauthorized' });
@@ -363,7 +363,7 @@ reportsRouter.get('/list', requireAuth, async (req: Request, res: Response) => {
 reportsRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({ message: 'Unauthorized' });

@@ -4,7 +4,7 @@ export const reportsController = {
   async generateReport(req: Request, res: Response): Promise<void> {
     try {
       const { assessmentId } = req.body;
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
 
       if (!userId || !assessmentId) {
         res.status(400).json({ message: 'Missing required fields' });
@@ -31,7 +31,7 @@ export const reportsController = {
 
   async listReports(req: Request, res: Response): Promise<void> {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
 
       if (!userId) {
         res.status(401).json({ message: 'Unauthorized' });
@@ -59,7 +59,7 @@ export const reportsController = {
   async getReport(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
 
       if (!userId) {
         res.status(401).json({ message: 'Unauthorized' });

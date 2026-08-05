@@ -10,7 +10,7 @@ const router = Router();
 router.post('/ssl', async (req: Request, res: Response) => {
   try {
     const { domain, assetId } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!domain) {
       return res.status(400).json({ success: false, message: 'Domain is required' });
@@ -49,7 +49,7 @@ router.post('/ssl', async (req: Request, res: Response) => {
 router.post('/code', async (req: Request, res: Response) => {
   try {
     const { code, fileName = 'code.js', assetId } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!code) {
       return res.status(400).json({ success: false, message: 'Code is required' });
@@ -97,7 +97,7 @@ router.post('/ssl/batch', async (req: Request, res: Response) => {
 // GET /api/scanner/history - Get scan history
 router.get('/history', async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
     const limit = parseInt(req.query.limit as string) || 20;
@@ -118,7 +118,7 @@ router.get('/history', async (req: Request, res: Response) => {
 // GET /api/scanner/statistics - Get scan statistics
 router.get('/statistics', async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
     const totalScans = await prisma.scanResult.count({ where: { userId } });

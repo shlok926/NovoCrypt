@@ -9,7 +9,7 @@ router.use(requireAuth);
 // GET /api/jobs - List user's jobs
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const limit = parseInt(req.query.limit as string) || 50;
 
     const jobs = await prisma.job.findMany({
@@ -37,7 +37,7 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /api/jobs/:id - Get specific job status
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const { id } = req.params;
 
     const job = await prisma.job.findFirst({

@@ -22,7 +22,7 @@ router.get('/', async (req: Request, res: Response) => {
 // POST /api/workflows/:id/run - Execute a workflow
 router.post('/:id/run', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const { id } = req.params;
     const { assetId, payload = {} } = req.body;
 
@@ -41,7 +41,7 @@ router.post('/:id/run', async (req: Request, res: Response) => {
 // GET /api/workflows/runs/:id - Get a specific run
 router.get('/runs/:id', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const { id } = req.params;
 
     const run = await prisma.workflowRun.findFirst({
