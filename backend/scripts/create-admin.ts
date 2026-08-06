@@ -1,11 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
 async function main() {
   const email = 'neongaming12456@gmail.com';
-  const plainPassword = 'password123';
+  // Bootstrap credential: dynamically generated instead of hardcoded
+  const plainPassword = crypto.randomBytes(16).toString('hex');
   
   const passwordHash = await bcrypt.hash(plainPassword, 10);
   

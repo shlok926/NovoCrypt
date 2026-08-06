@@ -1,0 +1,122 @@
+name: Release Workflow
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish-artifacts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+          
+      - name: Install dependencies
+        run: |
+          npm ci --prefix backend
+          npm ci --prefix frontend
+
+      - name: Generate SBOM (Backend)
+        run: npx -y @cyclonedx/cyclonedx-npm --output-format JSON --output-file backend-bom.json
+        working-directory: ./backend
+
+      - name: Generate SBOM (Frontend)
+        run: npx -y @cyclonedx/cyclonedx-npm --output-format JSON --output-file frontend-bom.json
+        working-directory: ./frontend
+
+      - name: Upload SBOMs as Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            backend/backend-bom.json
+            frontend/frontend-bom.json
+
+      - name: Attest SBOMs
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: |
+            backend/backend-bom.json
+            frontend/frontend-bom.json
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-backend
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha
+            type=raw,value=latest
+
+      - name: Build and Push Backend Image
+        id: push-backend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.backend
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+
+      - name: Extract metadata (tags, labels) for Frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-frontend
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha
+            type=raw,value=latest
+
+      - name: Build and Push Frontend Image
+        id: push-frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.frontend
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.2.4'
+          
+      - name: Sign Docker Images with Cosign
+        run: |
+          cosign sign --yes ghcr.io/${{ github.repository }}-backend@${{ steps.push-backend.outputs.digest }}
+          cosign sign --yes ghcr.io/${{ github.repository }}-frontend@${{ steps.push-frontend.outputs.digest }}
+
+      - name: Attest Backend Image
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ghcr.io/${{ github.repository }}-backend
+          subject-digest: ${{ steps.push-backend.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest Frontend Image
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ghcr.io/${{ github.repository }}-frontend
+          subject-digest: ${{ steps.push-frontend.outputs.digest }}
+          push-to-registry: true
