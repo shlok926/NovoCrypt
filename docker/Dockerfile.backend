@@ -25,18 +25,22 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Enforce non-root execution
+RUN chown node:node /app
+USER node
+
 # Install only production dependencies
-COPY backend/package*.json ./
+COPY --chown=node:node backend/package*.json ./
 RUN npm ci --omit=dev
 
 # Copy Prisma schema
-COPY backend/prisma ./prisma
+COPY --chown=node:node backend/prisma ./prisma
 
 # Generate Prisma client for production
 RUN npx prisma generate
 
 # Copy built application
-COPY --from=builder /app/dist ./dist
+COPY --chown=node:node --from=builder /app/dist ./dist
 
 # Create reports directory
 RUN mkdir -p reports
