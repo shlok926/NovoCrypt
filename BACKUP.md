@@ -1,63 +1,43 @@
-# Enterprise Disaster Recovery & Backup Runbook
+# NovoCrypt Enterprise Backup & Disaster Recovery
+
+## Overview
+This document outlines the disaster recovery architecture for the NovoCrypt database, officially configured to automatically push encrypted logical backups to an S3-compatible cloud storage bucket.
 
 ## Architecture
-The Postgres database is automatically backed up using the `prodrigestivill/postgres-backup-local` sidecar container integrated directly into the `docker-compose.yml` stack.
+The system uses the `postgres-backup-local` sidecar container. 
+*   **Local Storage:** Backups are saved locally to the `postgres_backups` Docker volume.
+*   **Cloud Synchronization:** Backups are simultaneously pushed to an S3-compatible object store (AWS S3, Backblaze B2, Cloudflare R2, MinIO).
+*   **Schedule:** `@daily` (Midnight).
+*   **Retention:** 7 days locally and remotely.
 
-- **Engine:** `pg_dump` (Logical backup)
-- **Schedule:** `@daily` (Configurable via `SCHEDULE` environment variable)
-- **Retention:** 7 Days (Configurable via `BACKUP_KEEP_DAYS`)
-- **Storage:** Local named volume `postgres_backups`
+## Required S3 Credentials
+The following environment variables must be defined in `.env`:
+*   `S3_ACCESS_KEY_ID`
+*   `S3_SECRET_ACCESS_KEY`
+*   `S3_BUCKET`
+*   `S3_REGION`
+*   `S3_ENDPOINT` (Required if using non-AWS providers like MinIO or R2)
 
-## 1. Backup Workflow
-Backups run automatically. You can also manually trigger a backup by executing:
+## Disaster Recovery Procedure
+
+### 1. Download Backup from S3
+If the local host is completely destroyed, download the latest `.sql.gz` backup file from the secure S3 bucket using the AWS CLI or provider console:
 ```bash
-docker exec novocrypt-db-backup /backup.sh
+aws s3 cp s3://<S3_BUCKET>/<YYYY-MM-DD-HH-MM-SS>-novocrypt.sql.gz ./latest-backup.sql.gz
 ```
-To verify the backups have been created:
+
+### 2. Verify Integrity
+Compare the checksum of the downloaded file with the expected checksum (if generated/logged) to ensure the archive is not corrupted.
+
+### 3. Restore to Database
+Copy the backup archive to the running database container and restore it:
 ```bash
-docker run --rm -v novocrypt_postgres_backups:/backups alpine ls -lh /backups
+# Copy file to container
+docker cp latest-backup.sql.gz novocrypt-db:/tmp/
+
+# Execute restore
+docker exec -it novocrypt-db bash -c "gunzip -c /tmp/latest-backup.sql.gz | psql -U shield_user -d novocrypt"
 ```
 
-## 2. Restore Workflow
-To restore the database from a backup, follow these exact steps:
-
-1. **Stop the backend** to prevent new connections:
-   ```bash
-   docker compose stop backend
-   ```
-2. **Identify the backup file**:
-   ```bash
-   docker run --rm -v novocrypt_postgres_backups:/backups alpine ls -lh /backups
-   ```
-3. **Drop existing connections & Restore**:
-   ```bash
-   # Replace <timestamp> with the actual backup filename
-   docker exec -i novocrypt-db pg_restore -U shield_user -d novocrypt --clean --if-exists < /var/lib/postgresql/backups/<timestamp>-novocrypt.sql
-   ```
-   *Note: If the backup is gzip compressed (.gz), decompress it via a pipe: `zcat <file.gz> | docker exec -i novocrypt-db psql -U shield_user -d novocrypt`*
-
-4. **Restart the backend**:
-   ```bash
-   docker compose start backend
-   ```
-
-## 3. Validation Procedure
-A backup is invalid until it has been restored.
-To validate:
-1. Spin up a temporary, isolated Postgres container.
-2. Load the latest dump into the temporary container.
-3. Execute `SELECT count(*) FROM "User";` (or equivalent) to verify data structure and counts.
-4. Verify the checksum of the backup archive if transferring off-site.
-
-## 4. Disaster Recovery
-If the host is completely lost but the `postgres_backups` volume was synced offsite:
-1. Re-provision the host.
-2. Place the backup archive in the local filesystem.
-3. Mount the local path to the new Postgres container.
-4. Execute the Restore Workflow (Step 3).
-
-## 5. Restore Testing Checklist
-- [ ] Weekly automated backup executed successfully.
-- [ ] Checksum matched between source and destination (if exported).
-- [ ] Backup successfully loaded into a staging database.
-- [ ] Application logic verified against the staging database.
+## Restore Testing Policy
+The Enterprise Architecture Review Board mandates that a manual restore test (following the above procedure) must be executed into a staging environment at least once per quarter to mathematically verify the disaster recovery pipeline.

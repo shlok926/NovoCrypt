@@ -76,7 +76,7 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRY: 7d
-      CORS_ORIGIN: http://localhost
+      CORS_ORIGIN: https://${DOMAIN:-localhost}
     tmpfs:
       - /tmp
     depends_on:
@@ -100,6 +100,10 @@ services:
     <<: *default-hardening
     ports:
       - "80:8080"
+      - "443:8443"
+    volumes:
+      - certbot_data:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
     tmpfs:
       - /tmp:uid=101,gid=101,mode=0755
       - /var/cache/nginx:uid=101,gid=101,mode=0755
@@ -108,10 +112,22 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  certbot:
+    image: certbot/certbot
+    container_name: novocrypt-certbot
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - certbot_data:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    depends_on:
+      - frontend
 
   db-backup:
     image: prodrigestivill/postgres-backup-local:14
@@ -126,6 +142,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       SCHEDULE: "@daily"
       BACKUP_KEEP_DAYS: 7
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${S3_REGION}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
     volumes:
       - postgres_backups:/backups
     tmpfs:
@@ -139,10 +160,28 @@ services:
       timeout: 5s
       retries: 3
 
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: novocrypt-uptime
+    restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - uptime_data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/', (r) => {if(r.statusCode !== 200) process.exit(1)})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   postgres_data:
   redis_data:
   postgres_backups:
+  certbot_data:
+  certbot_www:
+  uptime_data:
 
 networks:
   default:
