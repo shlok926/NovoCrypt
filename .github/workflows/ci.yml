@@ -9,6 +9,22 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: rootpassword
+          POSTGRES_DB: novocrypt_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - uses: actions/checkout@v4
     
@@ -24,17 +40,47 @@ jobs:
         npm ci --prefix backend
         npm ci --prefix frontend
 
-    - name: TypeScript Compilation
+    - name: Prisma Generate
+      working-directory: ./backend
+      run: npm run prisma:generate
+      
+    - name: Prisma Migrate (Test DB)
+      working-directory: ./backend
+      env:
+        DATABASE_URL: "postgresql://root:rootpassword@localhost:5432/novocrypt_test?schema=public"
+      run: npm run prisma:deploy
+
+    - name: TypeScript Compilation (Type Check)
       run: |
         npx tsc --noEmit --project backend/tsconfig.json
         npx tsc -b frontend
+
+    - name: Unit Tests
+      working-directory: ./backend
+      run: npm run test:unit
+
+    - name: Integration Tests
+      working-directory: ./backend
+      env:
+        TEST_ENV: integration
+        DATABASE_URL: "postgresql://root:rootpassword@localhost:5432/novocrypt_test?schema=public"
+      run: npm run test:integration
+
+    - name: Contract Tests
+      working-directory: ./backend
+      env:
+        TEST_ENV: integration
+        DATABASE_URL: "postgresql://root:rootpassword@localhost:5432/novocrypt_test?schema=public"
+      run: npm run test:contract
+
+    - name: Coverage Audit
+      working-directory: ./backend
+      run: npm run test:coverage
 
     - name: Build
       run: |
         npm run build --prefix backend
         npm run build --prefix frontend
 
-    - name: Unit Tests
-      run: |
-        npm test --prefix backend --if-present
-        npm test --prefix frontend --if-present
+    - name: Docker Build Verification
+      run: docker compose build backend

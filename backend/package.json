@@ -11,7 +11,12 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "test": "tsx scripts/test-aes-detector.ts && tsx scripts/test-ecc-detector.ts && tsx scripts/test-jwt-detector.ts && tsx scripts/test-pqc-detector.ts && tsx scripts/test-tls-detector.ts && tsx scripts/test-phase3-improvements.ts && tsx scripts/test-phase4-improvements.ts && tsx scripts/test-phase8-parser.ts && tsx scripts/test-phase8-traversal.ts && tsx scripts/test-phase8-scope.ts && tsx scripts/test-phase8-symbol.ts && tsx scripts/test-phase8-type.ts && tsx scripts/test-phase8-verifier.ts && tsx scripts/test-phase9-dataflow.ts && tsx scripts/test-phase10-taint.ts && tsx scripts/test-phase11-callgraph.ts"
+    "test": "vitest run",
+    "test:unit": "vitest run --dir tests/unit",
+    "test:integration": "vitest run --dir tests/integration",
+    "test:contract": "vitest run --dir tests/contract",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest watch"
   },
   "dependencies": {
     "@prisma/client": "6.7.0",
@@ -42,10 +47,12 @@
     "zod": "3.23.8"
   },
   "devDependencies": {
+    "@faker-js/faker": "10.5.0",
     "@types/bcryptjs": "2.4.6",
     "@types/cookie-parser": "1.4.7",
     "@types/cors": "2.8.17",
     "@types/express": "4.17.21",
+    "@types/ioredis-mock": "8.2.8",
     "@types/jsonwebtoken": "9.0.6",
     "@types/morgan": "1.9.9",
     "@types/node": "20.14.11",
@@ -54,13 +61,18 @@
     "@types/nodemailer": "6.4.15",
     "@types/pdfkit": "0.13.4",
     "@types/pino-http": "5.8.4",
+    "@types/supertest": "7.2.1",
     "@typescript-eslint/eslint-plugin": "8.0.0",
     "@typescript-eslint/parser": "8.0.0",
+    "@vitest/coverage-v8": "4.1.10",
     "eslint": "9.8.0",
     "eslint-config-prettier": "9.1.0",
+    "ioredis-mock": "8.13.1",
     "prettier": "3.3.3",
     "prisma": "6.7.0",
+    "supertest": "7.2.2",
     "tsx": "4.16.2",
-    "typescript": "5.5.4"
+    "typescript": "5.5.4",
+    "vitest": "4.1.10"
   }
 }
