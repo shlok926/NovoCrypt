@@ -1,0 +1,30 @@
+{
+  "title": "Backend Metrics",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP Requests Total",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total[5m])",
+          "legendFormat": "{{method}} {{route}} - {{status_code}}"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Process Resident Memory",
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes",
+          "legendFormat": "Memory Bytes"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    }
+  ],
+  "schemaVersion": 36,
+  "timezone": "browser",
+  "refresh": "10s"
+}

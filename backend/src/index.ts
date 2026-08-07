@@ -5,27 +5,24 @@ import { env } from './config/env';
 import { redis } from './config/redis';
 import { initializeWebSocket } from './config/websocket';
 import { initializeCronJobs } from './jobs/cron';
+import { logger } from './middleware/logger';
 
 const start = async (): Promise<void> => {
   try {
     // Try to connect to Prisma (optional for now)
     try {
       await prisma.$connect();
-      // eslint-disable-next-line no-console
-      console.log('✓ Database connected');
+      logger.info('Database connected');
     } catch (dbError) {
-      // eslint-disable-next-line no-console
-      console.warn('⚠ Database connection failed - running in mock mode');
+      logger.warn('Database connection failed - running in mock mode');
     }
 
     // Try to connect to Redis (optional for now)
     try {
       await redis.connect();
-      // eslint-disable-next-line no-console
-      console.log('✓ Redis connected');
+      logger.info('Redis connected');
     } catch (redisError) {
-      // eslint-disable-next-line no-console
-      console.warn('⚠ Redis connection failed - using in-memory cache');
+      logger.warn('Redis connection failed - using in-memory cache');
     }
 
     // Create HTTP server with Express app
@@ -33,21 +30,17 @@ const start = async (): Promise<void> => {
 
     // Initialize WebSocket
     initializeWebSocket(server);
-    // eslint-disable-next-line no-console
-    console.log('✓ WebSocket initialized');
+    logger.info('WebSocket initialized');
 
     // Initialize Cron Jobs
     initializeCronJobs();
 
     server.listen(env.PORT, () => {
-      // eslint-disable-next-line no-console
-      console.log(`✓ Backend running on http://localhost:${env.PORT}`);
-      // eslint-disable-next-line no-console
-      console.log(`✓ Real-time updates enabled via WebSocket`);
+      logger.info(`Backend running on http://localhost:${env.PORT}`);
+      logger.info(`Real-time updates enabled via WebSocket`);
     });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to start server:', error);
+    logger.error({ error }, 'Failed to start server');
     process.exit(1);
   }
 };
