@@ -83,4 +83,14 @@ describe('RBAC Middleware - Unit Tests', () => {
       "Cannot delete protected system role 'ADMIN'"
     );
   });
+
+  it('should pass error to next(error) if rbacService.getUserPermissions throws an error', async () => {
+    const err = new Error('Database error in rbac service');
+    vi.mocked(rbacService.getUserPermissions).mockRejectedValue(err);
+
+    const middleware = requirePermission('assets:read');
+    await middleware(req, res, next);
+
+    expect(next).toHaveBeenCalledWith(err);
+  });
 });
