@@ -8,7 +8,7 @@ describe('JWT Utilities', () => {
     role: 'ADMIN',
   };
 
-  it('should successfully sign and verify a token', () => {
+  it('should successfully sign and verify a token with auto-generated jti', () => {
     const token = signAccessToken(payload);
     expect(token).toBeTypeOf('string');
     expect(token.split('.')).toHaveLength(3); // JWT format Header.Payload.Signature
@@ -19,6 +19,8 @@ describe('JWT Utilities', () => {
       email: payload.email,
       role: payload.role,
     });
+    expect(verified.jti).toBeDefined();
+    expect(verified.jti).toBeTypeOf('string');
   });
 
   it('should throw an error for invalid token', () => {
