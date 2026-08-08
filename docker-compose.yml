@@ -72,8 +72,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql://shield_user:${POSTGRES_PASSWORD}@postgres:5432/novocrypt}
+      REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRY: 7d
       CORS_ORIGIN: https://${DOMAIN:-localhost}
