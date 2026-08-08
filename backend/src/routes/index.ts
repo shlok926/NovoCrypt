@@ -17,10 +17,12 @@ import jobsRoutes from './jobs.routes';
 import workflowsRoutes from './workflows.routes';
 import correlationsRoutes from './correlations.routes';
 import migrationsRoutes from './migrations.routes';
+import rbacRoutes from './rbac.routes';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/rbac', rbacRoutes);
 router.use('/risk', riskRoutes);
 router.use('/lab', labRoutes);
 router.use('/algorithms', algorithmsRouter);
