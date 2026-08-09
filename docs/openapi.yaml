@@ -1,0 +1,752 @@
+openapi: 3.1.0
+info:
+  title: NovoCrypt Backend API Platform
+  description: Enterprise Post-Quantum Cryptography & Identity Management API
+  version: 1.0.0
+  contact:
+    name: Security Engineering Team
+    email: security@novocrypt.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: /api/v1
+    description: Production API v1 Namespace
+  - url: /api
+    description: Legacy Compatibility API Alias
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: System Health Check
+      description: Returns current backend status and system health indicators.
+      operationId: getHealth
+      tags:
+        - System
+      security: []
+      responses:
+        '200':
+          description: System is healthy
+          headers:
+            x-request-id:
+              $ref: '#/components/headers/X-Request-ID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/register:
+    post:
+      summary: Register User Account
+      description: Registers a new user account with cryptographic credentials.
+      operationId: registerUser
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /auth/login:
+    post:
+      summary: User Authentication
+      description: Authenticates user credentials and issues JWT session tokens.
+      operationId: loginUser
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/logout:
+    post:
+      summary: Revoke Session Token
+      description: Blacklists current JWT JTI token across distributed cache.
+      operationId: logoutUser
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/me:
+    get:
+      summary: Get Active User Profile
+      description: Retrieves profile details of the authenticated caller.
+      operationId: getProfile
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /rbac/roles:
+    get:
+      summary: List System Roles
+      description: Retrieves all configured system RBAC roles.
+      operationId: getRoles
+      tags:
+        - Role-Based Access Control
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Roles retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RolesListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /rbac/permissions:
+    get:
+      summary: List System Permissions
+      description: Retrieves all available fine-grained RBAC permissions.
+      operationId: getPermissions
+      tags:
+        - Role-Based Access Control
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Permissions list retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /rbac/my-permissions:
+    get:
+      summary: Get Caller Permissions
+      description: Resolves the multi-role permission union of the caller.
+      operationId: getMyPermissions
+      tags:
+        - Role-Based Access Control
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Resolved caller permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /threats/feed:
+    get:
+      summary: Threat Intelligence Feed
+      description: Retrieves live threat intelligence assessments.
+      operationId: getThreatFeed
+      tags:
+        - Threat Intelligence
+      security: []
+      responses:
+        '200':
+          description: Threat feed returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /risk/assessments:
+    get:
+      summary: Risk Assessment Overview
+      description: Retrieves enterprise PQC risk scores and evaluations.
+      operationId: getRiskAssessments
+      tags:
+        - Risk Engine
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Risk assessments retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /lab/simulations:
+    get:
+      summary: Cryptographic Lab Simulations
+      description: Retrieves active PQC algorithm simulations.
+      operationId: getLabSimulations
+      tags:
+        - Cryptographic Lab
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lab simulations retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /algorithms/catalog:
+    get:
+      summary: PQC Algorithm Catalog
+      description: Returns NIST-standardized PQC algorithm specifications.
+      operationId: getAlgorithmCatalog
+      tags:
+        - Algorithms
+      security: []
+      responses:
+        '200':
+          description: Algorithm catalog returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /reports/summary:
+    get:
+      summary: Governance Compliance Reports
+      description: Generates high-level posture summaries.
+      operationId: getReportsSummary
+      tags:
+        - Reports
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Reports generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /content/articles:
+    get:
+      summary: Educational Content Articles
+      description: Retrieves PQC educational research.
+      operationId: getContentArticles
+      tags:
+        - Content
+      security: []
+      responses:
+        '200':
+          description: Articles list returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /qday/countdown:
+    get:
+      summary: Quantum Day Countdown Metrics
+      description: Calculates estimated timeline to Quantum Supremacy risk.
+      operationId: getQDayCountdown
+      tags:
+        - Quantum Intelligence
+      security: []
+      responses:
+        '200':
+          description: Countdown metrics returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /scanner/targets:
+    get:
+      summary: Cryptographic Scanner Targets
+      description: Lists active network endpoint scan targets.
+      operationId: getScanTargets
+      tags:
+        - Scanner Engine
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Scan targets returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /playground/execute:
+    post:
+      summary: Interactive Code Playground
+      description: Evaluates PQC code snippets in isolated sandbox.
+      operationId: executePlayground
+      tags:
+        - Playground
+      security: []
+      responses:
+        '200':
+          description: Code execution result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /compliance/frameworks:
+    get:
+      summary: Regulatory Framework Mapping
+      description: Provides mapping against CNSA 2.0 and NIST PQC.
+      operationId: getComplianceFrameworks
+      tags:
+        - Compliance
+      security: []
+      responses:
+        '200':
+          description: Compliance frameworks returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /community/discussions:
+    get:
+      summary: Developer Community Discussions
+      description: Retrieves community posts.
+      operationId: getCommunityDiscussions
+      tags:
+        - Community
+      security: []
+      responses:
+        '200':
+          description: Discussions list returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /chatbot/query:
+    post:
+      summary: Cryptographic Assistant Query
+      description: AI-assisted cryptographic advisory prompt execution.
+      operationId: queryChatbot
+      tags:
+        - AI Assistant
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Assistant response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /assets:
+    get:
+      summary: Cryptographic Asset Inventory
+      description: Lists registered cryptographic keys and certificates.
+      operationId: getAssets
+      tags:
+        - Assets
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Asset inventory returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /jobs/submit:
+    post:
+      summary: Asynchronous Job Submission
+      description: Submits background cryptographic processing tasks.
+      operationId: submitJob
+      tags:
+        - Async Jobs
+      security:
+        - bearerAuth: []
+      responses:
+        '202':
+          description: Job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /workflows:
+    get:
+      summary: Orchestration Workflows
+      description: Retrieves post-quantum migration workflows.
+      operationId: getWorkflows
+      tags:
+        - Workflows
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Workflows returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /correlations:
+    get:
+      summary: Vulnerability Correlation Matrix
+      description: Maps threat feeds against inventory assets.
+      operationId: getCorrelations
+      tags:
+        - Correlations
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Correlation matrix returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /migrations:
+    get:
+      summary: Migration Tracking Status
+      description: Monitors key replacement and algorithm upgrade tasks.
+      operationId: getMigrations
+      tags:
+        - Migration Engine
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Migration progress returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  headers:
+    X-Request-ID:
+      description: Request correlation ID emitted for tracing
+      schema:
+        type: string
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+        meta:
+          type: object
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            requestId:
+              type: string
+
+    ErrorEnvelope:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: VALIDATION_FAILED
+            message:
+              type: string
+              example: Validation failed
+            details:
+              type: object
+
+    HealthResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - status
+            - service
+            - timestamp
+          properties:
+            status:
+              type: string
+              example: ok
+            service:
+              type: string
+              example: novocrypt-backend
+            timestamp:
+              type: string
+
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - token
+            - user
+          properties:
+            token:
+              type: string
+            user:
+              type: object
+
+    UserProfileResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required:
+            - id
+            - email
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+
+    RolesListResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - name
+              - code
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              code:
+                type: string
+
+  responses:
+    ValidationError:
+      description: Request payload validation failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+            example:
+              success: false
+              error:
+                code: VALIDATION_FAILED
+                message: Validation failed
+
+    UnauthorizedError:
+      description: Missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+            example:
+              success: false
+              error:
+                code: AUTH_REQUIRED
+                message: Access token required
+
+    ForbiddenError:
+      description: Access forbidden due to insufficient RBAC permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+            example:
+              success: false
+              error:
+                code: PERMISSION_DENIED
+                message: Forbidden - Permission denied
+
+    NotFoundError:
+      description: Requested API resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+            example:
+              success: false
+              error:
+                code: RESOURCE_NOT_FOUND
+                message: Resource not found
+
+    ConflictError:
+      description: Unique constraint violation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+            example:
+              success: false
+              error:
+                code: CONFLICT
+                message: Entity already exists
+
+    InternalError:
+      description: Unhandled internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+            example:
+              success: false
+              error:
+                code: INTERNAL_ERROR
+                message: Internal server error
