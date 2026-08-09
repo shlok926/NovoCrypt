@@ -21,6 +21,13 @@ import rbacRoutes from './rbac.routes';
 
 const router = Router();
 
+router.use((req, res, next) => {
+  if (req.baseUrl === '/api') {
+    res.setHeader('Deprecation', 'true');
+  }
+  next();
+});
+
 router.use('/auth', authRoutes);
 router.use('/rbac', rbacRoutes);
 router.use('/risk', riskRoutes);
