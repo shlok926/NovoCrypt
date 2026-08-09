@@ -1,9 +1,18 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../../src/config/database';
 import { rbacService } from '../../src/services/rbac.service';
 import { sessionService } from '../../src/services/session.service';
 
 describe('RBAC & Session Management - Integration Tests', () => {
+  beforeEach(async () => {
+    await prisma.userSession.deleteMany({});
+    await prisma.rolePermission.deleteMany({});
+    await prisma.userRole.deleteMany({});
+    await prisma.user.deleteMany({});
+    await prisma.role.deleteMany({ where: { isSystem: false } });
+    await prisma.permission.deleteMany({});
+  });
+
   it('should seed and retrieve system roles and permissions', async () => {
     const role = await prisma.role.create({
       data: {
