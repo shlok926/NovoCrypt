@@ -7,7 +7,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)
 ![Node.js](https://img.shields.io/badge/Node.js-20.x-green.svg)
 ![Build Status](https://img.shields.io/badge/build-passing-green.svg)
-![Pass Rate](https://img.shields.io/badge/tests-130%2F130%20passing-green.svg)
+![Pass Rate](https://img.shields.io/badge/tests-130%2F130%20passing-red.svg)
 
 ---
 
