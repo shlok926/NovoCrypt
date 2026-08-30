@@ -48,7 +48,7 @@ jobs:
       working-directory: ./backend
       env:
         DATABASE_URL: "postgresql://root:rootpassword@localhost:5432/novocrypt_test?schema=public"
-      run: npm run prisma:deploy
+      run: npx prisma db push --accept-data-loss --skip-generate
 
     - name: TypeScript Compilation (Type Check)
       run: |
