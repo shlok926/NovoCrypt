@@ -52,8 +52,8 @@ jobs:
 
     - name: TypeScript Compilation (Type Check)
       run: |
-        npx tsc --noEmit --project backend/tsconfig.json
-        npx tsc -b frontend
+        npm run typecheck --prefix backend
+        npm run typecheck --prefix frontend
 
     - name: Unit Tests
       working-directory: ./backend
