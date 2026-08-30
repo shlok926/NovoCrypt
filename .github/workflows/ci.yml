@@ -57,24 +57,44 @@ jobs:
 
     - name: Unit Tests
       working-directory: ./backend
+      env:
+        NODE_ENV: test
+        DATABASE_URL: "postgresql://root:rootpassword@localhost:5432/novocrypt_test?schema=public"
+        REDIS_URL: "redis://localhost:6379"
+        JWT_SECRET: "super-secret-jwt-key-for-unit-testing-32-chars-long"
+        CORS_ORIGIN: "http://localhost:3000"
       run: npm run test:unit
 
     - name: Integration Tests
       working-directory: ./backend
       env:
+        NODE_ENV: test
         TEST_ENV: integration
         DATABASE_URL: "postgresql://root:rootpassword@localhost:5432/novocrypt_test?schema=public"
+        REDIS_URL: "redis://localhost:6379"
+        JWT_SECRET: "super-secret-jwt-key-for-unit-testing-32-chars-long"
+        CORS_ORIGIN: "http://localhost:3000"
       run: npm run test:integration
 
     - name: Contract Tests
       working-directory: ./backend
       env:
+        NODE_ENV: test
         TEST_ENV: integration
         DATABASE_URL: "postgresql://root:rootpassword@localhost:5432/novocrypt_test?schema=public"
+        REDIS_URL: "redis://localhost:6379"
+        JWT_SECRET: "super-secret-jwt-key-for-unit-testing-32-chars-long"
+        CORS_ORIGIN: "http://localhost:3000"
       run: npm run test:contract
 
     - name: Coverage Audit
       working-directory: ./backend
+      env:
+        NODE_ENV: test
+        DATABASE_URL: "postgresql://root:rootpassword@localhost:5432/novocrypt_test?schema=public"
+        REDIS_URL: "redis://localhost:6379"
+        JWT_SECRET: "super-secret-jwt-key-for-unit-testing-32-chars-long"
+        CORS_ORIGIN: "http://localhost:3000"
       run: npm run test:coverage
 
     - name: Build
