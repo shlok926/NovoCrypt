@@ -73,11 +73,11 @@ jobs:
         severity: 'CRITICAL,HIGH'
 
     - name: Generate SBOM (Backend)
-      run: npx -y @cyclonedx/cyclonedx-npm --output-format JSON --output-file backend-bom.json
+      run: npx -y @cyclonedx/cyclonedx-npm --ignore-npm-errors --output-format JSON --output-file backend-bom.json
       working-directory: ./backend
 
     - name: Generate SBOM (Frontend)
-      run: npx -y @cyclonedx/cyclonedx-npm --output-format JSON --output-file frontend-bom.json
+      run: npx -y @cyclonedx/cyclonedx-npm --ignore-npm-errors --output-format JSON --output-file frontend-bom.json
       working-directory: ./frontend
 
     - name: Upload SBOM Artifacts
